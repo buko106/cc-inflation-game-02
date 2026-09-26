@@ -4,6 +4,9 @@
 
 ビルド不要。ブラウザだけで動きます。
 
+**▶ プレイ: https://buko106.github.io/cc-inflation-game-02/**
+（ユーザーサイトに独自ドメインを設定している場合は `https://<独自ドメイン>/cc-inflation-game-02/` に転送されます）
+
 ## 遊び方
 
 `index.html` をブラウザで開くだけで遊べます。ローカルサーバーで開く場合は次のとおりです。
@@ -34,6 +37,12 @@ npm start   # http://localhost:8080
 | `js/ui.js` | 描画・操作・セーブ |
 | `tools/simulate.js` | 貪欲に買い物するBotで数時間分をシミュレートし、バランスを確認する |
 | `tools/build-single.js` | CSSとJSを埋め込んだ1ファイル版HTMLを `dist/` に出力する |
+
+## 公開（GitHub Pages）
+
+`main` に push すると `.github/workflows/pages.yml` がテストを実行し、`index.html`・`css/`・`js/` だけを GitHub Pages に公開します。Actions タブの「Deploy to GitHub Pages」から手動でも実行できます。
+
+初回のみ、リポジトリの **Settings → Pages → Build and deployment → Source** を **GitHub Actions** にしてください。
 
 ## 開発
 
