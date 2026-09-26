@@ -1,0 +1,12 @@
+{
+  "name": "inflation-quest",
+  "version": "1.0.0",
+  "description": "数値が際限なくインフレしていく放置系RPG",
+  "private": true,
+  "scripts": {
+    "start": "npx --yes http-server -c-1 -p 8080 .",
+    "test": "node --test tests/*.test.js",
+    "sim": "node tools/simulate.js"
+  },
+  "license": "MIT"
+}

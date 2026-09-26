@@ -1,0 +1,662 @@
+/* インフレクエスト: 夜のJRPGウィンドウを基調にした単一ダークテーマ */
+:root {
+  color-scheme: dark;
+  --night: #121130;
+  --night-2: #1b1947;
+  --window: #0b0a1f;
+  --frame: #ebe8ff;
+  --frame-dim: rgba(235, 232, 255, 0.28);
+  --ink: #f1eeff;
+  --muted: #a19dcc;
+  --faint: #5d5990;
+  --gold: #f5c542;
+  --gold-deep: #b8860b;
+  --hp: #ff5470;
+  --exp: #52d1ff;
+  --soul: #b98cff;
+  --good: #6ee7a0;
+  --danger: #ff6b6b;
+  --btn: #26235c;
+  --btn-hover: #332f78;
+  --font-pixel: 'DotGothic16', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Noto Sans JP', monospace;
+  --font-text: 'Zen Kaku Gothic New', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Noto Sans JP', sans-serif;
+  --radius: 10px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+[hidden] { display: none !important; }
+
+html, body { min-height: 100%; }
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(ellipse at 50% -10%, #2b2770 0%, transparent 60%),
+    var(--night);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--font-pixel);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+button:focus-visible, [role="tab"]:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+b { font-weight: normal; }
+
+.app {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding-inline: 16px;
+  padding-block: 12px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ---------- ヘッダー ---------- */
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.logo {
+  margin: 0;
+  font-size: clamp(22px, 4vw, 30px);
+  font-weight: normal;
+  letter-spacing: 0.04em;
+  color: var(--gold);
+  text-shadow: 2px 2px 0 var(--gold-deep), 4px 4px 0 rgba(0, 0, 0, 0.5);
+}
+.logo span { color: var(--ink); text-shadow: 2px 2px 0 var(--faint), 4px 4px 0 rgba(0, 0, 0, 0.5); }
+
+.wallet { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.purse {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 12px;
+  border: 2px solid var(--frame-dim);
+  border-radius: 999px;
+  background: var(--window);
+  font-variant-numeric: tabular-nums;
+}
+.purse b { font-size: 20px; }
+.purse-label { font-size: 13px; color: var(--muted); }
+.purse-gold b { color: var(--gold); }
+.purse-soul b { color: var(--soul); }
+
+/* ---------- 桁の梯子 ---------- */
+.ladder-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.ladder-caption {
+  flex: none;
+  font-family: var(--font-text);
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+.ladder {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 2px 0 6px;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  min-width: 0;
+}
+.ladder li {
+  flex: none;
+  padding: 2px 7px;
+  border: 1px solid var(--faint);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.ladder li.reached {
+  border-color: var(--gold);
+  color: var(--night);
+  background: var(--gold);
+}
+.ladder li.next {
+  border-style: dashed;
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* ---------- レイアウト ---------- */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.stage-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+/* 1カラムでは買い物パネルをログより上に出す */
+@media (max-width: 900px) {
+  .layout { display: flex; flex-direction: column; align-items: stretch; }
+  .stage-col { display: contents; }
+  .panel-col { order: 1; }
+  .log { order: 2; }
+}
+
+/* JRPG風のウィンドウ: 白い二重枠 */
+.window {
+  background: var(--window);
+  border: 3px solid var(--frame);
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 3px var(--window), 0 0 0 4px var(--frame-dim), 0 12px 30px rgba(0, 0, 0, 0.4);
+  padding: 12px 14px;
+  min-width: 0;
+}
+
+/* ---------- 戦闘画面 ---------- */
+.stage { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+.stage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-inline: 4px;
+}
+.area-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; }
+.area-no { color: var(--gold); font-variant-numeric: tabular-nums; }
+.area-name { font-size: 18px; overflow-wrap: anywhere; }
+.area-nav { display: flex; gap: 6px; flex: none; }
+
+.icon-btn {
+  width: 34px;
+  height: 30px;
+  border: 2px solid var(--frame-dim);
+  border-radius: 6px;
+  background: var(--btn);
+  font-size: 12px;
+}
+.icon-btn:hover:not(:disabled) { background: var(--btn-hover); }
+.icon-btn:disabled { opacity: 0.35; cursor: default; }
+
+.pips { display: flex; gap: 5px; padding-inline: 4px; }
+.pips i {
+  width: 12px;
+  height: 12px;
+  transform: rotate(45deg);
+  border: 2px solid var(--faint);
+  background: transparent;
+}
+.pips i.done { background: var(--gold); border-color: var(--gold); }
+.pips i.boss { border-color: var(--hp); }
+.pips i.boss.now { background: var(--hp); animation: pulse 0.8s ease-in-out infinite alternate; }
+
+.field {
+  --hue: 110;
+  position: relative;
+  height: 280px;
+  border-radius: 6px;
+  overflow: hidden;
+  background:
+    linear-gradient(to bottom, transparent 68%, hsl(var(--hue) 30% 14%) 68%, hsl(var(--hue) 35% 9%) 100%),
+    radial-gradient(ellipse at 50% 30%, hsl(var(--hue) 45% 30%) 0%, hsl(var(--hue) 40% 16%) 55%, hsl(var(--hue) 35% 9%) 100%);
+  transition: background 0.6s;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.enemy {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform: translate(-50%, -50%);
+  padding: 8px 20px;
+  border: 0;
+  background: none;
+  line-height: 1;
+  touch-action: manipulation;
+}
+.sprite {
+  display: block;
+  font-size: 104px;
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  filter: drop-shadow(0 10px 6px rgba(0, 0, 0, 0.45));
+  animation: bob 2.2s ease-in-out infinite;
+}
+.sprite.boss { font-size: 132px; filter: drop-shadow(0 0 18px rgba(255, 84, 112, 0.75)) drop-shadow(0 10px 6px rgba(0, 0, 0, 0.45)); }
+.sprite.hit { animation: hit 0.18s linear; }
+.sprite.dying { animation: dying 0.33s ease-in forwards; }
+.sprite.spawning { animation: spawn 0.25s ease-out; }
+
+.enemy-info {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  width: min(78%, 360px);
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+}
+.enemy-name { font-size: 15px; text-shadow: 1px 1px 0 #000; }
+.enemy-name.boss { color: #ffb3c0; }
+.enemy-hp { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; text-shadow: 1px 1px 0 #000; }
+
+.bar {
+  position: relative;
+  height: 12px;
+  border: 2px solid var(--frame);
+  border-radius: 3px;
+  background: #05040f;
+  overflow: hidden;
+}
+.bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 100%;
+  background: var(--hp);
+  transition: width 0.12s linear;
+  /* ドット絵風の目盛り */
+  background-image: repeating-linear-gradient(to right, transparent 0 6px, rgba(0, 0, 0, 0.22) 6px 8px);
+  background-color: var(--hp);
+}
+.bar-exp i { background-color: var(--exp); }
+.bar-enemy { margin-block: 3px; }
+
+.boss-timer {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 2;
+}
+.boss-timer .bar { flex: 1; height: 10px; }
+.boss-timer .bar i { background-color: var(--gold); }
+.boss-timer-label { color: var(--hp); font-size: 14px; text-shadow: 1px 1px 0 #000; }
+.boss-timer-sec { width: 44px; text-align: right; font-size: 14px; font-variant-numeric: tabular-nums; text-shadow: 1px 1px 0 #000; }
+
+.banner {
+  position: absolute;
+  left: 50%;
+  top: 18%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  white-space: nowrap;
+  z-index: 3;
+}
+.banner.show { animation: banner 1.6s ease-out; }
+.banner strong {
+  display: block;
+  font-weight: normal;
+  font-size: 30px;
+  color: var(--gold);
+  text-shadow: 2px 2px 0 var(--gold-deep), 0 0 12px rgba(245, 197, 66, 0.6);
+}
+.banner span { font-size: 15px; text-shadow: 1px 1px 0 #000; }
+.banner.soul strong { color: var(--soul); text-shadow: 2px 2px 0 #5b3a99, 0 0 12px rgba(185, 140, 255, 0.6); }
+.banner.bad strong { color: var(--hp); text-shadow: 2px 2px 0 #7a1f30; }
+
+.popups { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+.pop {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+  animation: rise 0.9s ease-out forwards;
+}
+.pop.crit::before { content: '会心! '; font-size: 0.6em; color: var(--gold); }
+.pop.party { color: #9fe8ff; }
+.pop.gold { color: var(--gold); animation-name: drift; }
+.pop.chain { color: var(--good); }
+/* 桁が増えるほど色が変わる */
+.pop.t1 { color: #ffe27a; }
+.pop.t2 { color: #ffb057; }
+.pop.t3 { color: #ff7b6b; }
+.pop.t4 { color: #ff7ad9; }
+.pop.t5 { color: #c49bff; }
+.pop.t6 {
+  background: linear-gradient(90deg, #ff6b6b, #ffd76b, #6bff9a, #6bc8ff, #c56bff, #ff6b6b);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(2px 2px 0 #000);
+  animation: rise 0.9s ease-out forwards, rainbow 0.8s linear infinite;
+}
+
+.stage-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  padding-inline: 4px;
+}
+.hint { font-family: var(--font-text); font-size: 12px; color: var(--muted); }
+
+.toggle {
+  padding: 5px 14px;
+  border: 2px solid var(--good);
+  border-radius: 6px;
+  background: rgba(110, 231, 160, 0.12);
+  color: var(--good);
+}
+.toggle[aria-pressed="false"] {
+  border-color: var(--gold);
+  background: rgba(245, 197, 66, 0.14);
+  color: var(--gold);
+  animation: pulse 1s ease-in-out infinite alternate;
+}
+
+/* ---------- スキル ---------- */
+.skills {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+.skill {
+  --cd: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px 6px;
+  border: 2px solid var(--frame-dim);
+  border-radius: 8px;
+  background: var(--window);
+  overflow: hidden;
+  min-width: 0;
+}
+.skill::after {
+  /* クールダウンの残りを扇形で覆う */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: conic-gradient(rgba(5, 4, 15, 0.78) calc(var(--cd) * 1turn), transparent 0);
+  pointer-events: none;
+}
+.skill:hover:not(:disabled) { border-color: var(--frame); }
+.skill:disabled { cursor: default; }
+.skill.ready { border-color: var(--gold); }
+.skill.active { border-color: var(--good); box-shadow: 0 0 12px rgba(110, 231, 160, 0.5) inset; }
+.skill.locked { opacity: 0.45; }
+.skill-icon { font-size: 24px; line-height: 1.1; font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; }
+.skill-name { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.skill-state { position: relative; z-index: 1; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.skill.active .skill-state { color: var(--good); }
+.skill.ready .skill-state { color: var(--gold); }
+
+@media (max-width: 480px) {
+  .skills { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+  .skill-name { font-size: 10px; }
+}
+
+/* ---------- 勇者ステータス ---------- */
+.hero { display: flex; flex-direction: column; gap: 8px; }
+.hero-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.hero-name { font-size: 18px; }
+.hero-title { font-family: var(--font-text); font-size: 12px; color: var(--muted); padding: 1px 8px; border: 1px solid var(--faint); border-radius: 999px; }
+.hero-lv { margin-left: auto; color: var(--gold); font-variant-numeric: tabular-nums; }
+.hero-lv b { font-size: 20px; }
+
+.gauge { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.gauge-label { font-size: 13px; color: var(--muted); }
+.gauge-text { font-size: 13px; font-variant-numeric: tabular-nums; min-width: 8ch; text-align: right; }
+.bar-hp.hurt { animation: hurt 0.2s linear; }
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 2px 0 0;
+}
+.stat-grid div { min-width: 0; }
+.stat-grid dt { font-family: var(--font-text); font-size: 11px; color: var(--muted); letter-spacing: 0.05em; }
+.stat-grid dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+@media (max-width: 480px) { .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ---------- ログ ---------- */
+.log {
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 2px;
+  font-size: 14px;
+}
+.log p { margin: 0; overflow-wrap: anywhere; }
+.log p::before { content: '＊ '; color: var(--faint); }
+.log p:not(:last-child) { color: var(--muted); }
+.log .g { color: var(--gold); }
+.log .s { color: var(--soul); }
+.log .x { color: var(--exp); }
+.log .r { color: var(--hp); }
+.log .v { color: var(--good); }
+
+/* ---------- 右パネル ---------- */
+.panel-col { display: flex; flex-direction: column; gap: 10px; padding: 10px; }
+
+.tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.tabs button {
+  padding: 8px 4px;
+  border: 2px solid var(--frame-dim);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+}
+.tabs button[aria-selected="true"] {
+  border-color: var(--frame);
+  background: var(--btn);
+  color: var(--ink);
+}
+.tabs button[aria-selected="true"]::before { content: '▶'; font-size: 10px; margin-right: 4px; color: var(--gold); }
+
+.buy-amount { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.buy-amount-label { font-family: var(--font-text); font-size: 12px; color: var(--muted); margin-right: 4px; }
+.buy-amount button, .seg button {
+  padding: 3px 10px;
+  border: 1px solid var(--faint);
+  border-radius: 5px;
+  background: transparent;
+  font-size: 14px;
+  color: var(--muted);
+}
+.buy-amount button[aria-checked="true"], .seg button[aria-checked="true"] {
+  border-color: var(--gold);
+  color: var(--night);
+  background: var(--gold);
+}
+
+.panel { display: flex; flex-direction: column; gap: 10px; }
+.panel-note { margin: 0; font-family: var(--font-text); font-size: 12px; color: var(--muted); line-height: 1.6; }
+.panel-heading { margin: 8px 0 0; font-size: 17px; font-weight: normal; }
+.panel-heading small { font-family: var(--font-text); font-size: 12px; color: var(--muted); margin-left: 8px; }
+
+.rows { display: flex; flex-direction: column; gap: 6px; }
+.row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(235, 232, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+.row-icon { font-size: 26px; text-align: center; font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; }
+.row-main { min-width: 0; }
+.row-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.row-title .slot { font-family: var(--font-text); font-size: 11px; color: var(--muted); }
+.row-title .lv { font-size: 13px; color: var(--gold); font-variant-numeric: tabular-nums; }
+.row-sub { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.row-sub b { color: var(--ink); }
+.row-sub .next { color: var(--good); }
+.row-sub .milestone { font-family: var(--font-text); font-size: 11px; color: var(--faint); }
+.row.locked { opacity: 0.5; }
+.share { height: 3px; margin-top: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
+.share i { display: block; height: 100%; background: var(--exp); }
+
+.buy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 96px;
+  padding: 5px 10px;
+  border: 2px solid var(--gold);
+  border-radius: 7px;
+  background: rgba(245, 197, 66, 0.1);
+  line-height: 1.25;
+}
+.buy:hover:not(:disabled) { background: rgba(245, 197, 66, 0.22); }
+.buy:disabled { border-color: var(--faint); background: transparent; cursor: default; }
+.buy:disabled .buy-cost { color: var(--faint); }
+.buy-lv { font-size: 12px; color: var(--muted); }
+.buy-cost { font-size: 14px; color: var(--gold); font-variant-numeric: tabular-nums; }
+.buy.soul { border-color: var(--soul); background: rgba(185, 140, 255, 0.1); }
+.buy.soul .buy-cost { color: var(--soul); }
+.buy.soul:disabled { border-color: var(--faint); background: transparent; }
+
+.prestige-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(185, 140, 255, 0.35);
+  border-radius: 8px;
+  background: rgba(185, 140, 255, 0.06);
+}
+.prestige-lead { margin: 0; font-family: var(--font-text); font-size: 13px; line-height: 1.7; }
+.prestige-lead b { color: var(--soul); font-weight: 700; }
+.prestige-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.prestige-stats dt { font-family: var(--font-text); font-size: 11px; color: var(--muted); }
+.prestige-stats dd { margin: 0; font-size: 20px; color: var(--soul); overflow-wrap: anywhere; }
+
+.big-btn {
+  padding: 10px 16px;
+  border: 3px solid var(--soul);
+  border-radius: 8px;
+  background: #2e2166;
+  font-size: 18px;
+}
+.big-btn:hover:not(:disabled) { background: #3b2a85; }
+.big-btn:disabled { border-color: var(--faint); background: transparent; color: var(--faint); cursor: default; }
+
+.records {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+}
+.records div { display: flex; justify-content: space-between; gap: 8px; padding-bottom: 4px; border-bottom: 1px dotted var(--faint); min-width: 0; }
+.records dt { font-family: var(--font-text); font-size: 12px; color: var(--muted); flex: none; }
+.records dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; min-width: 0; }
+@media (max-width: 480px) { .records { grid-template-columns: minmax(0, 1fr); } }
+
+.settings { display: flex; flex-direction: column; gap: 12px; }
+.setting { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.seg { display: flex; gap: 6px; }
+.setting-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.setting-actions button, .modal-actions button {
+  padding: 6px 12px;
+  border: 2px solid var(--frame-dim);
+  border-radius: 6px;
+  background: var(--btn);
+  font-size: 14px;
+}
+.setting-actions button:hover, .modal-actions button:hover { background: var(--btn-hover); }
+.setting-actions .danger, .modal-actions .danger { border-color: var(--danger); color: var(--danger); background: transparent; }
+.modal-actions .primary { border-color: var(--gold); color: var(--gold); }
+
+/* ---------- モーダル ---------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(5, 4, 15, 0.72);
+}
+.modal-box { width: min(460px, 100%); display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; }
+.modal-box h2 { margin: 0; font-size: 20px; font-weight: normal; color: var(--gold); }
+.modal-body { font-family: var(--font-text); font-size: 14px; line-height: 1.7; }
+.modal-body p { margin: 0 0 6px; }
+.modal-body b { font-family: var(--font-pixel); font-weight: normal; color: var(--gold); }
+.modal-body .r { color: var(--danger); }
+.modal-body textarea {
+  width: 100%;
+  min-height: 110px;
+  padding: 8px;
+  border: 1px solid var(--faint);
+  border-radius: 6px;
+  background: #05040f;
+  color: var(--ink);
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-all;
+}
+.modal-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+
+/* ---------- アニメーション ---------- */
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes hit {
+  0% { transform: translateX(0); filter: brightness(2.2); }
+  33% { transform: translateX(-6px); }
+  66% { transform: translateX(6px); }
+  100% { transform: translateX(0); }
+}
+@keyframes dying { to { transform: scale(0.2) rotate(25deg); opacity: 0; filter: brightness(3); } }
+@keyframes spawn { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes rise {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(0.7); }
+  15% { opacity: 1; transform: translate(-50%, -60%) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -190%) scale(1); }
+}
+@keyframes drift {
+  0% { opacity: 0; transform: translate(-50%, 0); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -120%); }
+}
+@keyframes banner {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(0.8); }
+  15% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+  75% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -70%) scale(1); }
+}
+@keyframes rainbow { to { background-position: 200% 0; } }
+@keyframes pulse { from { opacity: 1; } to { opacity: 0.55; } }
+@keyframes hurt { 50% { border-color: var(--hp); box-shadow: 0 0 8px var(--hp); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sprite, .pips i.boss.now, .toggle[aria-pressed="false"] { animation: none; }
+  .sprite.hit, .sprite.spawning { animation: none; }
+  .pop { animation: fade 0.9s ease-out forwards; }
+  .pop.t6 { animation: fade 0.9s ease-out forwards; }
+  @keyframes fade { from { opacity: 1; } to { opacity: 0; } }
+}
