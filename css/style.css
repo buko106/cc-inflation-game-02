@@ -29,6 +29,16 @@
 
 html, body { min-height: 100%; }
 
+/* スマホでボタンを連打したときのダブルタップ拡大を防ぐ（ピンチ操作での拡大はできる）。
+   iOS Safari は html への指定を無視することがあるので、画面全体の入れ物にも付ける */
+html, .app, .modal {
+  touch-action: manipulation;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   background:
@@ -46,6 +56,10 @@ button {
   font: inherit;
   color: inherit;
   cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 button:focus-visible, [role="tab"]:focus-visible {
@@ -100,6 +114,27 @@ b { font-weight: normal; }
 .purse-label { font-size: 13px; color: var(--muted); }
 .purse-gold b { color: var(--gold); }
 .purse-soul b { color: var(--soul); }
+
+/* 1カラム表示では所持金の欄を画面上端に貼り付けて、スクロールしても見えるようにする */
+@media (max-width: 900px) {
+  .topbar { display: contents; }
+  .wallet {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 20;
+    flex-wrap: nowrap;
+    margin-inline: -16px;
+    padding: 6px 16px;
+    background: rgba(18, 17, 48, 0.94);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--frame-dim);
+  }
+  .purse { min-width: 0; }
+  .purse-gold { flex: 1.5 1 0; }
+  .purse-soul { flex: 1 1 0; }
+  .purse b { min-width: 0; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
 
 /* ---------- 桁の梯子 ---------- */
 .ladder-wrap {
@@ -622,6 +657,8 @@ b { font-weight: normal; }
   word-break: break-all;
 }
 .modal-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+/* iOS は 16px 未満の入力欄にフォーカスすると画面を拡大するため */
+@media (pointer: coarse) { .modal-body textarea { font-size: 16px; } }
 
 /* ---------- アニメーション ---------- */
 @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
