@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>インフレクエスト</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <h1 class="logo">インフレ<span>クエスト</span></h1>
+    <div class="wallet">
+      <div class="purse purse-gold" title="ゴールド"><span class="purse-label">G</span><b id="gold">0</b></div>
+      <div class="purse purse-soul" title="魂"><span class="purse-label">魂</span><b id="souls">0</b></div>
+    </div>
+  </header>
+
+  <div class="ladder-wrap">
+    <span class="ladder-caption">最大ダメージの桁</span>
+    <ol class="ladder" id="ladder" aria-label="最大ダメージが到達した数の単位"></ol>
+  </div>
+
+  <main class="layout">
+    <section class="stage-col">
+      <div class="window stage">
+        <div class="stage-head">
+          <div class="area-title">
+            <span class="area-no" id="areaNo">エリア 1</span>
+            <span class="area-name" id="areaName">はじまりの草原</span>
+          </div>
+          <div class="area-nav">
+            <button type="button" id="prevArea" class="icon-btn" aria-label="前のエリアへ">◀</button>
+            <button type="button" id="nextArea" class="icon-btn" aria-label="次のエリアへ">▶</button>
+          </div>
+        </div>
+        <div class="pips" id="pips" aria-label="エリア内の撃破数"></div>
+
+        <div class="field" id="field">
+          <div class="boss-timer" id="bossTimer" hidden>
+            <span class="boss-timer-label">BOSS</span>
+            <div class="bar"><i id="bossTimerFill"></i></div>
+            <span class="boss-timer-sec" id="bossTimerSec">30.0</span>
+          </div>
+          <button type="button" class="enemy" id="enemy" aria-label="敵を攻撃する（Aキーでも攻撃）">
+            <span class="sprite" id="sprite">🟢</span>
+          </button>
+          <div class="enemy-info">
+            <div class="enemy-name" id="enemyName">スライム</div>
+            <div class="bar bar-enemy"><i id="enemyHpFill"></i></div>
+            <div class="enemy-hp" id="enemyHpText">20 / 20</div>
+          </div>
+          <div class="banner" id="banner" aria-live="polite"></div>
+          <div class="popups" id="popups" aria-hidden="true"></div>
+        </div>
+
+        <div class="stage-foot">
+          <button type="button" id="autoAdv" class="toggle" aria-pressed="true">自動進行 ON</button>
+          <span class="hint">敵をタップで追撃 / キー: A 攻撃・1〜5 スキル</span>
+        </div>
+      </div>
+
+      <div class="skills" id="skills"></div>
+
+      <div class="window hero">
+        <div class="hero-head">
+          <span class="hero-name">勇者</span>
+          <span class="hero-title" id="heroTitle">見習い勇者</span>
+          <span class="hero-lv">Lv <b id="heroLv">1</b></span>
+        </div>
+        <div class="gauge">
+          <span class="gauge-label">HP</span>
+          <div class="bar bar-hp"><i id="heroHpFill"></i></div>
+          <span class="gauge-text" id="heroHpText">100 / 100</span>
+        </div>
+        <div class="gauge">
+          <span class="gauge-label">EXP</span>
+          <div class="bar bar-exp"><i id="heroExpFill"></i></div>
+          <span class="gauge-text" id="heroExpText">あと 10</span>
+        </div>
+        <dl class="stat-grid">
+          <div><dt>攻撃力</dt><dd id="statAtk">10</dd></div>
+          <div><dt>防御力</dt><dd id="statDef">5</dd></div>
+          <div><dt>仲間DPS</dt><dd id="statParty">0</dd></div>
+          <div><dt>総DPS</dt><dd id="statDps">0</dd></div>
+        </dl>
+      </div>
+
+      <div class="window log" id="log" aria-live="polite"></div>
+    </section>
+
+    <section class="window panel-col">
+      <nav class="tabs" role="tablist" aria-label="メニュー">
+        <button type="button" role="tab" id="tab-equip" aria-controls="panel-equip" aria-selected="true">装備</button>
+        <button type="button" role="tab" id="tab-party" aria-controls="panel-party" aria-selected="false">仲間</button>
+        <button type="button" role="tab" id="tab-soul" aria-controls="panel-soul" aria-selected="false">転生</button>
+        <button type="button" role="tab" id="tab-record" aria-controls="panel-record" aria-selected="false">記録</button>
+      </nav>
+
+      <div class="buy-amount" id="buyAmount" role="radiogroup" aria-label="まとめ買いの数">
+        <span class="buy-amount-label">まとめ買い</span>
+        <button type="button" role="radio" data-amount="1">×1</button>
+        <button type="button" role="radio" data-amount="10">×10</button>
+        <button type="button" role="radio" data-amount="100">×100</button>
+        <button type="button" role="radio" data-amount="max">MAX</button>
+      </div>
+
+      <div class="panel" role="tabpanel" id="panel-equip" aria-labelledby="tab-equip">
+        <p class="panel-note">10レベルごとに装備が進化し、効果が大きく跳ね上がる。</p>
+        <div class="rows" id="equipRows"></div>
+      </div>
+
+      <div class="panel" role="tabpanel" id="panel-party" aria-labelledby="tab-party" hidden>
+        <p class="panel-note">仲間は勇者の攻撃力 × 倍率 のダメージを毎秒与える。25レベルごとに倍率 ×4。</p>
+        <div class="rows" id="partyRows"></div>
+      </div>
+
+      <div class="panel" role="tabpanel" id="panel-soul" aria-labelledby="tab-soul" hidden>
+        <div class="prestige-box">
+          <p class="prestige-lead">レベル・ゴールド・装備・仲間を捨てて生まれ変わり、<b>魂</b>を得る。持っている魂1つにつき攻撃力と仲間DPSが +10%。</p>
+          <dl class="prestige-stats">
+            <div><dt>いまの魂ボーナス</dt><dd id="soulBonus">×1</dd></div>
+            <div><dt>転生で得る魂</dt><dd id="soulGain">0</dd></div>
+          </dl>
+          <button type="button" id="prestigeBtn" class="big-btn">転生する</button>
+          <p class="panel-note" id="prestigeNote"></p>
+        </div>
+        <h2 class="panel-heading">神々の加護 <small>魂を消費して永続強化</small></h2>
+        <div class="rows" id="soulRows"></div>
+      </div>
+
+      <div class="panel" role="tabpanel" id="panel-record" aria-labelledby="tab-record" hidden>
+        <dl class="records" id="records"></dl>
+        <h2 class="panel-heading">設定</h2>
+        <div class="settings">
+          <div class="setting">
+            <span>数の表記</span>
+            <div class="seg" role="radiogroup" aria-label="数の表記">
+              <button type="button" role="radio" data-notation="jp">万・億・兆</button>
+              <button type="button" role="radio" data-notation="sci">1.23e45</button>
+            </div>
+          </div>
+          <div class="setting-actions">
+            <button type="button" id="saveBtn">いますぐセーブ</button>
+            <button type="button" id="exportBtn">セーブデータを書き出す</button>
+            <button type="button" id="importBtn">セーブデータを読み込む</button>
+            <button type="button" id="resetBtn" class="danger">最初からやり直す</button>
+          </div>
+          <p class="panel-note" id="saveNote">10秒ごとにこのブラウザへ自動セーブ。</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal-box window" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h2 id="modalTitle"></h2>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions" id="modalActions"></div>
+  </div>
+</div>
+
+<script src="js/bignum.js"></script>
+<script src="js/data.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
