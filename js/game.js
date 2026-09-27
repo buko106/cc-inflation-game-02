@@ -91,6 +91,32 @@
     return { name: loopPrefix(loop) + base.name, hue: base.hue, base, prefix: loopPrefix(loop) };
   }
 
+  // i 番目の仲間の定義。PARTY → PARTY_EXTRA → 接頭辞付きで両方を繰り返す、の順に無限に続く
+  const partyDefCache = [];
+  function partyDef(i) {
+    if (partyDefCache[i]) return partyDefCache[i];
+    let def;
+    if (i < D.PARTY.length) {
+      def = D.PARTY[i];
+    } else {
+      const names = D.PARTY.concat(D.PARTY_EXTRA);
+      const loop = Math.floor(i / names.length);
+      const base = names[i % names.length];
+      const last = D.PARTY[D.PARTY.length - 1];
+      const steps = i - (D.PARTY.length - 1);
+      def = {
+        id: 'p' + i,
+        icon: base.icon,
+        name: loopPrefix(loop) + base.name,
+        // 数値は巨大になるので BigNum で持つ
+        baseCost: B(D.PARTY_GEN_COST_STEP).pow(steps).mul(last.baseCost),
+        ratio: B(D.PARTY_GEN_RATIO_STEP).pow(steps).mul(last.ratio),
+      };
+    }
+    partyDefCache[i] = def;
+    return def;
+  }
+
   function equipName(def, level) {
     const tier = Math.floor(level / D.EQUIP_EVOLVE_EVERY);
     const plus = level % D.EQUIP_EVOLVE_EVERY;
@@ -113,7 +139,7 @@
       kills: 0,
       autoAdvance: true,
       equip: Object.fromEntries(D.EQUIPMENT.map((e) => [e.id, 0])),
-      party: D.PARTY.map(() => 0),
+      party: [], // 雇った順（= 仲間の番号順）のレベル
       skills: Object.fromEntries(D.SKILLS.map((s) => [s.id, { active: 0, cooldown: 0 }])),
     };
   }
@@ -193,12 +219,23 @@
       return B(1 + def.perLevel * n).mul(B(def.milestoneMult).pow(Math.floor(n / D.EQUIP_EVOLVE_EVERY)));
     }
 
+    partyLevel(idx) {
+      return this.state.party[idx] || 0;
+    }
+
     // 仲間1人の DPS 倍率（勇者の攻撃力に対する倍率）
     partyMemberRatio(idx, level) {
-      const def = D.PARTY[idx];
-      const n = level === undefined ? this.state.party[idx] : level;
+      const def = partyDef(idx);
+      const n = level === undefined ? this.partyLevel(idx) : level;
       if (n <= 0) return BigNum.ZERO;
-      return B(def.ratio * n).mul(B(D.PARTY_MILESTONE_MULT).pow(Math.floor(n / D.PARTY_MILESTONE_EVERY)));
+      return B(def.ratio).mul(n).mul(B(D.PARTY_MILESTONE_MULT).pow(Math.floor(n / D.PARTY_MILESTONE_EVERY)));
+    }
+
+    // 雇った仲間の人数（仲間は番号順にしか雇えないので、先頭から連続している）
+    partyHiredCount() {
+      let n = 0;
+      while (this.partyLevel(n) > 0) n++;
+      return n;
     }
 
     soulPassiveMult() {
@@ -222,7 +259,7 @@
       const atk = this.skillActive('berserk') ? baseAtk.mul(10) : baseAtk;
 
       let partyRatio = BigNum.ZERO;
-      for (let i = 0; i < D.PARTY.length; i++) partyRatio = partyRatio.add(this.partyMemberRatio(i));
+      for (let i = 0; i < s.party.length; i++) partyRatio = partyRatio.add(this.partyMemberRatio(i));
       let partyDps = baseAtk.mul(partyRatio);
       if (this.skillActive('rally')) partyDps = partyDps.mul(20);
 
@@ -548,12 +585,12 @@
     }
 
     partyUnlocked(idx) {
-      return idx === 0 || this.state.party[idx - 1] > 0;
+      return idx === 0 || this.partyLevel(idx - 1) > 0;
     }
 
     partyCost(idx, amount) {
-      const def = D.PARTY[idx];
-      const n = this.state.party[idx];
+      const def = partyDef(idx);
+      const n = this.partyLevel(idx);
       const k = resolveAmount(amount, def.baseCost, D.PARTY_COST_GROWTH, n, this.state.gold);
       return { levels: k, cost: bulkCost(def.baseCost, D.PARTY_COST_GROWTH, n, k) };
     }
@@ -563,6 +600,7 @@
       const { levels, cost } = this.partyCost(idx, amount);
       if (this.state.gold.lt(cost)) return false;
       this.state.gold = this.state.gold.sub(cost);
+      while (this.state.party.length <= idx) this.state.party.push(0);
       this.state.party[idx] += levels;
       this.invalidate();
       this.emit('purchase', { kind: 'party', idx, levels });
@@ -685,7 +723,9 @@
       s.kills = Math.min(CONFIG.enemiesPerArea - 1, Math.max(0, num(data.kills, 0)));
       s.autoAdvance = data.autoAdvance !== false;
       for (const e of D.EQUIPMENT) s.equip[e.id] = num(data.equip && data.equip[e.id], 0);
-      D.PARTY.forEach((_, i) => { s.party[i] = num(data.party && data.party[i], 0); });
+      // 旧バージョンのセーブは未加入の仲間を 0 で持っているので、末尾の 0 は落とす
+      if (Array.isArray(data.party)) s.party = data.party.map((v) => Math.max(0, Math.floor(num(v, 0))));
+      while (s.party.length && s.party[s.party.length - 1] === 0) s.party.pop();
       for (const sk of D.SKILLS) {
         const v = data.skills && data.skills[sk.id];
         if (v) s.skills[sk.id] = { active: num(v.active, 0), cooldown: num(v.cooldown, 0) };
@@ -706,6 +746,7 @@
   Game.CONFIG = CONFIG;
   Game.areaInfo = areaInfo;
   Game.equipName = equipName;
+  Game.partyDef = partyDef;
   Game.bulkCost = bulkCost;
   Game.maxAffordable = maxAffordable;
   return Game;

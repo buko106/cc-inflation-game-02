@@ -163,3 +163,38 @@ test('names keep evolving past the end of the material list', () => {
   assert.equal(Game.areaInfo(D.AREAS.length + 1).name, '真・はじまりの草原');
   assert.match(Game.areaInfo(D.AREAS.length * 20 + 1).name, /^無限\d+・/);
 });
+
+test('party members continue past the hand-made list and keep getting stronger', () => {
+  const named = D.PARTY.length + D.PARTY_EXTRA.length;
+  assert.equal(Game.partyDef(0).name, '村人A');
+  assert.equal(Game.partyDef(D.PARTY.length).name, D.PARTY_EXTRA[0].name);
+  assert.equal(Game.partyDef(named).name, '真・村人A');
+  assert.match(Game.partyDef(named * 10 + 3).name, /^無限\d+・/);
+  for (let i = 1; i < named * 3; i++) {
+    const prev = Game.partyDef(i - 1);
+    const cur = Game.partyDef(i);
+    assert.ok(BigNum.from(cur.baseCost).gt(prev.baseCost), `cost grows at ${i}`);
+    assert.ok(BigNum.from(cur.ratio).gt(prev.ratio), `ratio grows at ${i}`);
+  }
+});
+
+test('a rich hero can hire far beyond the first twelve members', () => {
+  const g = new Game(null, { random: noCrit });
+  g.state.gold = BigNum.from('1e600');
+  for (let i = 0; i < 100; i++) assert.ok(g.buyParty(i, 1), `hire member ${i}`);
+  assert.equal(g.partyHiredCount(), 100);
+  assert.equal(g.buyParty(101, 1), false, 'cannot skip a member');
+  const before = g.getStats().partyDps;
+  assert.ok(g.buyParty(99, 10));
+  assert.ok(g.getStats().partyDps.gt(before));
+  run(g, 1);
+});
+
+test('old saves with a fixed-size party array still load', () => {
+  const old = { totalExp: 0, party: [40, 25, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0] };
+  const g = new Game(old, { random: noCrit });
+  assert.deepEqual(g.state.party, [40, 25, 3]);
+  assert.equal(g.partyHiredCount(), 3);
+  assert.ok(g.partyUnlocked(3));
+  assert.equal(g.partyUnlocked(4), false);
+});
