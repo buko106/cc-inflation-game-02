@@ -443,89 +443,95 @@
   }
 
   // --- 仲間 ---
-  const partyRefs = [];
+  // 仲間は無限に増えるので、行は必要になったときに作る。
+  // 並びは後から出会う（= 強い）仲間ほど上で、先頭は次に雇える仲間
+  let partyRefs = [];
+  let partyRowsHired = -1;
+
   function buildParty() {
-    const root = $('partyRows');
-    root.innerHTML = '';
-    D.PARTY.forEach((def, i) => {
-      const row = document.createElement('div');
-      row.className = 'row';
-      row.innerHTML = `
-        <div class="row-icon"></div>
-        <div class="row-main">
-          <div class="row-title"><span class="name"></span><span class="lv"></span></div>
-          <div class="row-sub"></div>
-          <div class="share"><i></i></div>
-        </div>
-        <button type="button" class="buy"><span class="buy-lv"></span><span class="buy-cost"></span></button>`;
-      const btn = row.querySelector('.buy');
-      btn.addEventListener('click', () => {
-        const wasZero = game.state.party[i] === 0;
-        if (game.buyParty(i, game.state.settings.buyAmount) && wasZero) {
-          log(`${def.icon} <span class="v">${escapeHtml(def.name)}</span>が 仲間になった！`);
-          buildParty();
-          renderParty();
-        }
-      });
-      root.appendChild(row);
-      partyRefs[i] = {
-        row,
-        icon: row.querySelector('.row-icon'),
-        name: row.querySelector('.name'),
-        lv: row.querySelector('.lv'),
-        sub: row.querySelector('.row-sub'),
-        share: row.querySelector('.share'),
-        shareFill: row.querySelector('.share i'),
-        btn,
-        btnLv: row.querySelector('.buy-lv'),
-        btnCost: row.querySelector('.buy-cost'),
-      };
+    $('partyRows').innerHTML = '';
+    partyRefs = [];
+    partyRowsHired = -1;
+  }
+
+  function setText(el, text) {
+    if (el.textContent !== text) el.textContent = text;
+  }
+
+  function setHtml(el, html) {
+    if (el.dataset.html !== html) {
+      el.dataset.html = html;
+      el.innerHTML = html;
+    }
+  }
+
+  function partyRow(i) {
+    if (partyRefs[i]) return partyRefs[i];
+    const def = Game.partyDef(i);
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `
+      <div class="row-icon">${def.icon}</div>
+      <div class="row-main">
+        <div class="row-title"><span class="scout-chip">スカウト</span><span class="name">${escapeHtml(def.name)}</span><span class="lv"></span></div>
+        <div class="row-sub"></div>
+        <div class="share"><i></i></div>
+      </div>
+      <button type="button" class="buy"><span class="buy-lv"></span><span class="buy-cost"></span></button>`;
+    const btn = row.querySelector('.buy');
+    btn.addEventListener('click', () => {
+      const wasZero = game.partyLevel(i) === 0;
+      if (game.buyParty(i, game.state.settings.buyAmount) && wasZero) {
+        log(`${def.icon} <span class="v">${escapeHtml(def.name)}</span>が 仲間になった！`);
+        renderParty();
+      }
     });
+    partyRefs[i] = {
+      row,
+      lv: row.querySelector('.lv'),
+      sub: row.querySelector('.row-sub'),
+      share: row.querySelector('.share'),
+      shareFill: row.querySelector('.share i'),
+      btn,
+      btnLv: row.querySelector('.buy-lv'),
+      btnCost: row.querySelector('.buy-cost'),
+    };
+    return partyRefs[i];
   }
 
   function renderParty() {
     const s = game.state;
     const st = game.getStats();
-    let firstLockedShown = false;
-    D.PARTY.forEach((def, i) => {
+    const hired = game.partyHiredCount();
+    // 雇った人数が変わったときだけ並べ直す（連打中に行が動かないように）
+    if (hired !== partyRowsHired) {
+      const root = $('partyRows');
+      for (let i = hired; i >= 0; i--) root.appendChild(partyRow(i).row);
+      partyRowsHired = hired;
+    }
+    setText($('partySummary'), hired > 0
+      ? `仲間 ${hired.toLocaleString()}人 ・ 合計 攻撃力 ×${fmtMult(st.partyRatio)} /秒`
+      : 'まだ仲間がいない。まずは村人Aを雇おう');
+    for (let i = hired; i >= 0; i--) {
       const r = partyRefs[i];
-      const unlocked = game.partyUnlocked(i);
-      // 未解放の仲間は次の1人だけシルエットで見せる
-      const visible = unlocked || !firstLockedShown;
-      if (!unlocked) firstLockedShown = true;
-      r.row.hidden = !visible;
-      if (!visible) {
-        r.btn.disabled = true;
-        return;
-      }
-      r.row.classList.toggle('locked', !unlocked);
-      const n = s.party[i];
-      if (!unlocked) {
-        r.icon.textContent = '❔';
-        r.name.textContent = '？？？';
-        r.lv.textContent = '';
-        r.sub.textContent = '前の仲間を雇うと出会える';
-        r.share.hidden = true;
-        r.btn.disabled = true;
-        r.btnLv.textContent = '未解放';
-        r.btnCost.textContent = '—';
-        return;
-      }
+      const n = game.partyLevel(i);
+      const scout = n === 0;
+      r.row.classList.toggle('scout', scout);
       const { levels, cost } = game.partyCost(i, s.settings.buyAmount);
       const ratio = game.partyMemberRatio(i, n);
       const nextRatio = game.partyMemberRatio(i, n + levels);
       const toMilestone = D.PARTY_MILESTONE_EVERY - (n % D.PARTY_MILESTONE_EVERY);
-      r.icon.textContent = def.icon;
-      r.name.textContent = def.name;
-      r.lv.textContent = n > 0 ? `Lv ${n.toLocaleString()}` : '未加入';
-      r.sub.innerHTML = `攻撃力 ×<b>${fmtMult(ratio)}</b> /秒 <span class="next">→ ×${fmtMult(nextRatio)}</span> <span class="milestone">×4まで ${toMilestone}</span>`;
-      const share = st.partyRatio.isZero() ? 0 : ratio.div(st.partyRatio).toNumber();
-      r.share.hidden = n === 0;
-      r.shareFill.style.width = (Math.min(1, share) * 100).toFixed(1) + '%';
-      r.btnLv.textContent = n === 0 ? '雇う' : `+${levels.toLocaleString()} Lv`;
-      r.btnCost.textContent = `${fmt(cost)}G`;
+      setText(r.lv, scout ? '' : `Lv ${n.toLocaleString()}`);
+      setHtml(r.sub, `攻撃力 ×<b>${fmtMult(ratio)}</b> /秒 <span class="next">→ ×${fmtMult(nextRatio)}</span> <span class="milestone">×4まで ${toMilestone}</span>`);
+      r.share.hidden = scout;
+      if (!scout) {
+        const share = st.partyRatio.isZero() ? 0 : ratio.div(st.partyRatio).toNumber();
+        r.shareFill.style.width = (Math.min(1, share) * 100).toFixed(1) + '%';
+      }
+      setText(r.btnLv, scout ? '雇う' : `+${levels.toLocaleString()} Lv`);
+      setText(r.btnCost, `${fmt(cost)}G`);
       r.btn.disabled = s.gold.lt(cost);
-    });
+    }
   }
 
   // --- 転生 ---

@@ -58,6 +58,24 @@
     { id: 'universe', icon: '🌌', name: '宇宙の意思', baseCost: 1e23, ratio: 1.8e8 },
     { id: 'author', icon: '✍️', name: 'このゲームの作者', baseCost: 1e27, ratio: 2e9 },
   ];
+  // PARTY の後に続く仲間。雇用コストと倍率は最後の仲間から一定の比率で伸びる。
+  // この一覧も尽きたら、エリアと同じ接頭辞（真・超・極…）を付けて最初から無限に繰り返す
+  const PARTY_EXTRA = [
+    { icon: '🎮', name: 'このゲームのプレイヤー' },
+    { icon: '🐉', name: '始祖竜' },
+    { icon: '⏳', name: '時の番人' },
+    { icon: '🌀', name: '次元の旅人' },
+    { icon: '🧮', name: '巨大数学者' },
+    { icon: '📈', name: 'インフレ魔神' },
+    { icon: '🏦', name: '中央銀行総裁' },
+    { icon: '♾️', name: '無限の化身' },
+    { icon: '🌠', name: '創世神' },
+    { icon: '🪐', name: '多元宇宙の王' },
+    { icon: '👁️', name: '全知の観測者' },
+    { icon: '🔣', name: '概念そのもの' },
+  ];
+  const PARTY_GEN_COST_STEP = 1e4;
+  const PARTY_GEN_RATIO_STEP = 16;
   const PARTY_COST_GROWTH = 1.22;
   const PARTY_MILESTONE_EVERY = 25;
   const PARTY_MILESTONE_MULT = 4;
@@ -82,7 +100,8 @@
 
   return {
     AREAS, LOOP_PREFIXES, EQUIP_MATERIALS, EQUIP_EVOLVE_EVERY, EQUIPMENT,
-    PARTY, PARTY_COST_GROWTH, PARTY_MILESTONE_EVERY, PARTY_MILESTONE_MULT,
+    PARTY, PARTY_EXTRA, PARTY_GEN_COST_STEP, PARTY_GEN_RATIO_STEP,
+    PARTY_COST_GROWTH, PARTY_MILESTONE_EVERY, PARTY_MILESTONE_MULT,
     SKILLS, SOUL_UPGRADES,
   };
 });

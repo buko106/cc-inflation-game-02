@@ -47,25 +47,28 @@ function effectiveDps(g) {
 // 攻撃系の買い物候補を DPS 上昇率/コスト で評価し、最も効率の良いものを返す
 function bestDamagePurchase() {
   const s = game.state;
+  const st = game.getStats();
   const base = effectiveDps(game);
   let best = null;
-  const consider = (kind, id, cost, apply) => {
+  const pick = (kind, id, cost, gain) => {
     if (s.gold.lt(cost)) return;
-    const snapshot = JSON.stringify([s.equip, s.party]);
-    apply(1);
-    game.invalidate();
-    const gain = effectiveDps(game).div(base).toNumber() - 1;
-    apply(-1);
-    game.invalidate();
-    if (JSON.stringify([s.equip, s.party]) !== snapshot) throw new Error('rollback failed');
     const score = gain / Math.max(1e-300, cost.div(s.gold).toNumber());
     if (!best || score > best.score) best = { kind, id, score };
   };
-  consider('equip', 'weapon', game.equipCost('weapon', 1).cost, (d) => { s.equip.weapon += d; });
-  D.PARTY.forEach((_, i) => {
-    if (!game.partyUnlocked(i)) return;
-    consider('party', i, game.partyCost(i, 1).cost, (d) => { s.party[i] += d; });
-  });
+  // 武器は実際に1レベル上げて比べる
+  s.equip.weapon += 1;
+  game.invalidate();
+  const weaponGain = effectiveDps(game).div(base).toNumber() - 1;
+  s.equip.weapon -= 1;
+  game.invalidate();
+  pick('equip', 'weapon', game.equipCost('weapon', 1).cost, weaponGain);
+  // 仲間のDPSは「攻撃力 × 倍率の合計」なので、倍率の増分から直接計算する（仲間が多くても速い）
+  const partyMult = st.baseAtk.mul(game.skillActive('rally') ? 20 : 1).mul(1 + tapsPerSec * Game.CONFIG.tapPartyRatio).div(base);
+  for (let i = 0; i <= game.partyHiredCount(); i++) {
+    const n = game.partyLevel(i);
+    const dRatio = game.partyMemberRatio(i, n + 1).sub(game.partyMemberRatio(i, n));
+    pick('party', i, game.partyCost(i, 1).cost, partyMult.mul(dRatio).toNumber());
+  }
   return best;
 }
 
@@ -81,12 +84,23 @@ function shop() {
   }
   for (let guard = 0; guard < 500; guard++) {
     const accCost = game.equipCost('accessory', 1).cost;
-    if (accCost.lt(s.gold.mul(0.15))) { game.buyEquip('accessory', 1); continue; }
+    if (accCost.lt(s.gold.mul(0.15))) { game.buyEquip('accessory', bulkLevels('accessory', 0.15)); continue; }
     const best = bestDamagePurchase();
     if (!best) break;
-    const ok = best.kind === 'equip' ? game.buyEquip(best.id, 1) : game.buyParty(best.id, 1);
+    const ok = best.kind === 'equip' ? game.buyEquip(best.id, bulkLevels(best.id, 0.25)) : game.buyParty(best.id, bulkLevels(best.id, 0.25));
     if (!ok) break;
   }
+}
+
+// 人間が「MAX」を押すのに近づけるため、所持金の一定割合で買えるだけまとめ買いする
+function bulkLevels(id, share) {
+  const budget = game.state.gold.mul(share);
+  if (typeof id === 'number') {
+    const def = Game.partyDef(id);
+    return Math.max(1, Game.maxAffordable(def.baseCost, D.PARTY_COST_GROWTH, game.partyLevel(id), budget));
+  }
+  const def = D.EQUIPMENT.find((e) => e.id === id);
+  return Math.max(1, Game.maxAffordable(def.baseCost, def.costGrowth, game.state.equip[id], budget));
 }
 
 function spendSouls() {
@@ -152,6 +166,6 @@ for (let i = 0; i < totalTicks; i++) {
   if (checkpoints.length && t >= checkpoints[0]) {
     checkpoints.shift();
     const st = game.getStats();
-    log(`CHECK area ${s.area}/${s.maxArea} best ${s.bestArea} | Lv ${fmt(st.level)} ATK ${fmt(st.atk)} party ${fmt(st.partyDps)} | gold ${fmt(s.gold)} souls ${fmt(s.souls)} | equip ${JSON.stringify(s.equip)} party ${s.party.join(',')}`);
+    log(`CHECK area ${s.area}/${s.maxArea} best ${s.bestArea} | Lv ${fmt(st.level)} ATK ${fmt(st.atk)} party ${fmt(st.partyDps)} | gold ${fmt(s.gold)} souls ${fmt(s.souls)} | equip ${JSON.stringify(s.equip)} party ${s.party.length}人 [${s.party.slice(0, 3).join(',')}…${s.party.slice(-3).join(',')}]`);
   }
 }
