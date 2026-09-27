@@ -117,6 +117,13 @@
     return def;
   }
 
+  // i 番目の仲間に出会えるエリア
+  function partyUnlockArea(i) {
+    const list = D.PARTY_UNLOCK_AREAS;
+    if (i < list.length) return list[i];
+    return list[list.length - 1] + (i - (list.length - 1)) * D.PARTY_UNLOCK_EVERY;
+  }
+
   function equipName(def, level) {
     const tier = Math.floor(level / D.EQUIP_EVOLVE_EVERY);
     const plus = level % D.EQUIP_EVOLVE_EVERY;
@@ -584,8 +591,19 @@
       return true;
     }
 
+    // スカウトできるのは、ひとつ前の仲間を雇っていて、今回の冒険でその仲間のエリアに到達しているとき。
+    // すでに雇っている仲間はいつでも強化できる
     partyUnlocked(idx) {
-      return idx === 0 || this.partyLevel(idx - 1) > 0;
+      if (this.partyLevel(idx) > 0) return true;
+      if (idx > 0 && this.partyLevel(idx - 1) === 0) return false;
+      return this.state.maxArea >= partyUnlockArea(idx);
+    }
+
+    // 今回の冒険で出会えている仲間の人数
+    partyMetCount() {
+      let n = 0;
+      while (partyUnlockArea(n) <= this.state.maxArea) n++;
+      return n;
     }
 
     partyCost(idx, amount) {
@@ -747,6 +765,7 @@
   Game.areaInfo = areaInfo;
   Game.equipName = equipName;
   Game.partyDef = partyDef;
+  Game.partyUnlockArea = partyUnlockArea;
   Game.bulkCost = bulkCost;
   Game.maxAffordable = maxAffordable;
   return Game;
