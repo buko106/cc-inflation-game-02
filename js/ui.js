@@ -56,6 +56,30 @@
     return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
+  const attrDef = (id) => D.ATTRS.find((a) => a.id === id);
+  const attrLabel = (id) => `${attrDef(id).icon}${attrDef(id).name}`;
+
+  // 属性 attr の仲間が、エリア area で受ける相性
+  function attrEffect(area, attr) {
+    const base = Game.areaInfo(area).base;
+    const power = fmtMult(BigNum.fromLog10(Game.traitPower(area)));
+    if (base.weak === attr) return { cls: 'weak', short: `×${power}`, text: `弱点 ×${power}` };
+    if (base.resist === attr) return { cls: 'resist', short: `÷${power}`, text: `耐性 ÷${power}` };
+    return { cls: '', short: '等倍', text: '等倍' };
+  }
+
+  // 行き詰まったときに、エリアの特性から次の一手を教える
+  function areaHint(area) {
+    const base = Game.areaInfo(area).base;
+    const f = game.state.formation;
+    const tips = [];
+    if (base.weak && base.weak !== f) tips.push(`${attrLabel(base.weak)}が弱点。陣形を${attrLabel(base.weak)}にしよう`);
+    else if (base.resist === f) tips.push(`${attrLabel(f)}は効きにくい。陣形を変えよう`);
+    if (base.special) tips.push(D.AREA_SPECIALS[base.special].desc);
+    if (!tips.length) return '';
+    return ` <span class="hint-line">ヒント: ${base.note ? escapeHtml(base.note) + '。' : ''}${escapeHtml(tips.join('。'))}</span>`;
+  }
+
   // 数値の桁数から、ダメージ表示の色の段階を決める
   function magnitudeTier(b) {
     const e = b.e;
@@ -224,11 +248,11 @@
         break;
       case 'bossFail':
         banner(d.reason === 'timeout' ? '時間切れ…' : 'やられた…', '修行モードで力をためよう', 'bad');
-        log(`<span class="r">${escapeHtml(d.boss ? d.boss.name : 'ボス')}を 倒しきれなかった…</span> 自動進行をOFFにして修行モードへ`);
+        log(`<span class="r">${escapeHtml(d.boss ? d.boss.name : 'ボス')}を 倒しきれなかった…</span> 自動進行をOFFにして修行モードへ${areaHint(game.state.area)}`);
         break;
       case 'death':
         banner('ちからつきた…', `エリア${d.to}へ撤退`, 'bad');
-        log(`<span class="r">勇者は ちからつきた…</span> エリア${d.to}へ撤退した。防具を強化しよう`);
+        log(`<span class="r">勇者は ちからつきた…</span> エリア${d.to}へ撤退した。防具を強化しよう${areaHint(d.from)}`);
         break;
       case 'heroHit': {
         const bar = $('heroHpFill').parentElement;
@@ -247,6 +271,13 @@
       case 'autoAdvance':
         renderSlow();
         break;
+      case 'formation': {
+        const eff = attrEffect(game.state.area, d.attr);
+        const count = countAttr(d.attr);
+        log(`陣形を <span class="v">${attrLabel(d.attr)}</span> にした（戦う仲間 ${count.toLocaleString()}人・このエリアでは${eff.text}）`);
+        renderSlow();
+        break;
+      }
       case 'purchase':
         renderSlow();
         break;
@@ -341,6 +372,9 @@
       p.className = [isBoss ? 'boss' : '', i < s.kills ? 'done' : '', isBoss && bossNow ? 'now' : ''].join(' ');
     });
 
+    renderTraits();
+    renderFormation();
+
     const auto = $('autoAdv');
     auto.setAttribute('aria-pressed', String(s.autoAdvance));
     auto.textContent = s.autoAdvance ? '自動進行 ON' : (s.kills >= Game.CONFIG.enemiesPerArea - 1 ? 'ボスに挑む ▶' : '修行中（自動進行 OFF）');
@@ -365,6 +399,58 @@
     if (currentTab === 'party') renderParty();
     if (currentTab === 'soul') renderSoul();
     if (currentTab === 'record') renderRecords();
+  }
+
+  // --- エリアの特性と陣形 ---
+  function renderTraits() {
+    const area = game.state.area;
+    const base = Game.areaInfo(area).base;
+    const chips = [];
+    if (base.weak) chips.push(`<span class="trait weak">弱点 ${attrLabel(base.weak)}</span>`);
+    if (base.resist) chips.push(`<span class="trait resist">耐性 ${attrLabel(base.resist)}</span>`);
+    if (base.special) {
+      const sp = D.AREA_SPECIALS[base.special];
+      chips.push(`<span class="trait special" title="${escapeHtml(sp.desc)}">${sp.icon}${sp.name}</span>`);
+    }
+    if (!chips.length) chips.push('<span class="trait-none">特性なし</span>');
+    if (base.note) chips.push(`<span class="trait-note">${escapeHtml(base.note)}</span>`);
+    setHtml($('areaTraits'), chips.join(''));
+  }
+
+  const formationRefs = {};
+  function buildFormation() {
+    const root = $('formation');
+    root.innerHTML = '';
+    D.ATTRS.forEach((a, i) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.setAttribute('role', 'radio');
+      btn.innerHTML = `<span class="f-name">${a.icon}${a.name}</span><span class="eff"></span>`;
+      btn.title = `${a.name}の仲間を戦わせる [${'QWE'[i]}]`;
+      btn.addEventListener('click', () => game.setFormation(a.id));
+      root.appendChild(btn);
+      formationRefs[a.id] = { btn, eff: btn.querySelector('.eff') };
+    });
+  }
+
+  function renderFormation() {
+    const s = game.state;
+    for (const a of D.ATTRS) {
+      const r = formationRefs[a.id];
+      const eff = attrEffect(s.area, a.id);
+      r.btn.setAttribute('aria-checked', String(s.formation === a.id));
+      r.btn.classList.toggle('weak', eff.cls === 'weak');
+      r.btn.classList.toggle('resist', eff.cls === 'resist');
+      setText(r.eff, eff.short);
+    }
+  }
+
+  // 属性 attr の雇った仲間の人数
+  function countAttr(attr) {
+    let n = 0;
+    const hired = game.partyHiredCount();
+    for (let i = 0; i < hired; i++) if (Game.partyDef(i).attr === attr) n++;
+    return n;
   }
 
   let ladderBuilt = false;
@@ -477,7 +563,7 @@
     row.innerHTML = `
       <div class="row-icon"></div>
       <div class="row-main">
-        <div class="row-title"><span class="scout-chip">スカウト</span><span class="name"></span><span class="lv"></span></div>
+        <div class="row-title"><span class="scout-chip">スカウト</span><span class="attr-chip"></span><span class="name"></span><span class="lv"></span></div>
         <div class="row-sub"></div>
         <div class="share"><i></i></div>
       </div>
@@ -493,6 +579,7 @@
     partyRefs[i] = {
       row,
       icon: row.querySelector('.row-icon'),
+      attr: row.querySelector('.attr-chip'),
       name: row.querySelector('.name'),
       lv: row.querySelector('.lv'),
       sub: row.querySelector('.row-sub'),
@@ -518,20 +605,30 @@
     // 先頭は次の仲間。まだ出会っていなければ、出会えるエリアだけ見せる
     const nextArea = Game.partyUnlockArea(hired);
     const nextLocked = !game.partyUnlocked(hired);
-    const next = nextLocked ? ` ・ 次の仲間はエリア${nextArea.toLocaleString()}で出会える` : '';
-    setText($('partySummary'), hired > 0
-      ? `仲間 ${hired.toLocaleString()}人 ・ 合計 攻撃力 ×${fmtMult(st.partyRatio)} /秒${next}`
-      : 'まだ仲間がいない。まずは村人Aを雇おう');
+    const f = s.formation;
+    const fieldRatio = st.partyByAttr[f];
+    if (hired > 0) {
+      const eff = attrEffect(s.area, f);
+      const totals = D.ATTRS.map((a) => `<span class="${a.id === f ? 'on' : ''}">${attrLabel(a.id)} ×${fmtMult(st.partyByAttr[a.id])}</span>`).join(' ・ ');
+      const next = nextLocked ? `<br>次の仲間はエリア${nextArea.toLocaleString()}で出会える` : '';
+      setHtml($('partySummary'), `陣形 ${attrLabel(f)} ・ 攻撃力 ×${fmtMult(fieldRatio)} /秒 <span class="eff ${eff.cls}">このエリアでは${eff.text}</span>`
+        + `<br><span class="attr-totals">${totals}</span>${next}`);
+    } else {
+      setHtml($('partySummary'), 'まだ仲間がいない。まずは村人Aを雇おう');
+    }
     for (let i = hired; i >= 0; i--) {
       const r = partyRefs[i];
       const def = Game.partyDef(i);
       const n = game.partyLevel(i);
       const locked = i === hired && nextLocked;
       const scout = n === 0 && !locked;
+      const benched = !locked && def.attr !== f;
       r.row.classList.toggle('scout', scout);
       r.row.classList.toggle('locked', locked);
+      r.row.classList.toggle('benched', benched);
       if (locked) {
         setText(r.icon, '❔');
+        setText(r.attr, '');
         setText(r.name, '？？？');
         setText(r.lv, '');
         setHtml(r.sub, `エリア${nextArea.toLocaleString()}に到達すると出会える`);
@@ -542,6 +639,7 @@
         continue;
       }
       setText(r.icon, def.icon);
+      setText(r.attr, attrLabel(def.attr) + (benched ? '・控え' : ''));
       setText(r.name, def.name);
       const { levels, cost } = game.partyCost(i, s.settings.buyAmount);
       const ratio = game.partyMemberRatio(i, n);
@@ -549,9 +647,9 @@
       const toMilestone = D.PARTY_MILESTONE_EVERY - (n % D.PARTY_MILESTONE_EVERY);
       setText(r.lv, scout ? '' : `Lv ${n.toLocaleString()}`);
       setHtml(r.sub, `攻撃力 ×<b>${fmtMult(ratio)}</b> /秒 <span class="next">→ ×${fmtMult(nextRatio)}</span> <span class="milestone">×4まで ${toMilestone}</span>`);
-      r.share.hidden = scout;
-      if (!scout) {
-        const share = st.partyRatio.isZero() ? 0 : ratio.div(st.partyRatio).toNumber();
+      r.share.hidden = scout || benched;
+      if (!scout && !benched) {
+        const share = fieldRatio.isZero() ? 0 : ratio.div(fieldRatio).toNumber();
         r.shareFill.style.width = (Math.min(1, share) * 100).toFixed(1) + '%';
       }
       setText(r.btnLv, scout ? '雇う' : `+${levels.toLocaleString()} Lv`);
@@ -901,6 +999,8 @@
       }
       if (ev.target instanceof HTMLTextAreaElement || ev.target instanceof HTMLInputElement) return;
       if (ev.key === 'a' || ev.key === 'A') doTap(null);
+      const fi = 'qwe'.indexOf(ev.key.toLowerCase());
+      if (fi >= 0 && D.ATTRS[fi]) game.setFormation(D.ATTRS[fi].id);
       const n = Number(ev.key);
       if (n >= 1 && n <= D.SKILLS.length) game.useSkill(D.SKILLS[n - 1].id);
     });
@@ -964,6 +1064,7 @@
     buildEquip();
     buildSoul();
     buildSkills();
+    buildFormation();
     bindControls();
     startGame(saved);
     const tab = storageGet(TAB_KEY);
@@ -973,6 +1074,7 @@
       log('敵をタップして攻撃。ゴールドで装備を強化し、仲間を雇おう');
     } else {
       log('冒険を再開した');
+      if (!saved.formation) log(`<span class="v">新しい仕組み「陣形」</span>: 仲間に属性が付き、戦わせる属性を選べるようになった。エリアの弱点を突こう（いまは${attrLabel(game.state.formation)}）`);
     }
     lastFrame = performance.now();
     requestAnimationFrame(frame);

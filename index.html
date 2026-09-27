@@ -39,6 +39,7 @@
           </div>
         </div>
         <div class="pips" id="pips" aria-label="エリア内の撃破数"></div>
+        <div class="traits" id="areaTraits" aria-label="このエリアの特性"></div>
 
         <div class="field" id="field">
           <div class="boss-timer" id="bossTimer" hidden>
@@ -58,9 +59,14 @@
           <div class="popups" id="popups" aria-hidden="true"></div>
         </div>
 
+        <div class="formation">
+          <span class="formation-label">陣形</span>
+          <div class="formation-btns" id="formation" role="radiogroup" aria-label="陣形（戦わせる仲間の属性）"></div>
+        </div>
+
         <div class="stage-foot">
           <button type="button" id="autoAdv" class="toggle" aria-pressed="true">自動進行 ON</button>
-          <span class="hint">敵をタップで追撃 / キー: A 攻撃・1〜5 スキル</span>
+          <span class="hint">敵をタップで追撃 / キー: A 攻撃・1〜5 スキル・Q W E 陣形</span>
         </div>
       </div>
 
@@ -115,7 +121,7 @@
       </div>
 
       <div class="panel" role="tabpanel" id="panel-party" aria-labelledby="tab-party" hidden>
-        <p class="panel-note">仲間は勇者の攻撃力 × 倍率 のダメージを毎秒与える。25レベルごとに倍率 ×4。エリアを進めると新しい仲間に出会える。後から出会う仲間ほど強く、一覧の上に並ぶ。</p>
+        <p class="panel-note">仲間は勇者の攻撃力 × 倍率 のダメージを毎秒与える（25レベルごとに倍率 ×4）。戦うのは<b>陣形で選んだ属性</b>の仲間だけで、ほかは控え。エリアの弱点を突くと与ダメージが跳ね上がり、耐性があると激減する。先のエリアほど差は大きい。エリアを進めると新しい仲間に出会え、後から出会う仲間ほど強い。</p>
         <p class="party-summary" id="partySummary"></p>
         <div class="rows" id="partyRows"></div>
       </div>

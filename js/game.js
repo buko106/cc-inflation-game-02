@@ -38,6 +38,12 @@
     regenPerSec: 0.02,
     spawnDelay: 0.35,
     maxChain: 100,
+    // 陣形の属性がエリアの弱点なら仲間の与ダメージ ×10^p、耐性なら ×10^-p。
+    // p = max(traitMinPower, round(エリア × traitPowerPerArea))。先のエリアほど相性の差が大きくなる
+    traitMinPower: 1,
+    traitPowerPerArea: 0.045,
+    bruteAtkMult: 5, // 「強打」のエリアの敵の攻撃力倍率
+    enemyRegenPerSec: 0.05, // 「再生」のエリアの敵が毎秒回復する最大HPの割合
     prestigeMinArea: 20,
     soulBase: 5,
     soulGrowth: 1.12,
@@ -91,6 +97,19 @@
     return { name: loopPrefix(loop) + base.name, hue: base.hue, base, prefix: loopPrefix(loop) };
   }
 
+  // エリア area での相性の強さ（弱点なら 10^p 倍、耐性なら 10^-p 倍）
+  function traitPower(area) {
+    return Math.max(CONFIG.traitMinPower, Math.round(area * CONFIG.traitPowerPerArea));
+  }
+
+  // 属性 attr の攻撃が、エリア area の敵に与えるダメージの倍率
+  function attrMult(area, attr) {
+    const base = areaInfo(area).base;
+    if (attr && base.weak === attr) return BigNum.fromLog10(traitPower(area));
+    if (attr && base.resist === attr) return BigNum.fromLog10(-traitPower(area));
+    return BigNum.ONE;
+  }
+
   // i 番目の仲間の定義。PARTY → PARTY_EXTRA → 接頭辞付きで両方を繰り返す、の順に無限に続く
   const partyDefCache = [];
   function partyDef(i) {
@@ -108,6 +127,7 @@
         id: 'p' + i,
         icon: base.icon,
         name: loopPrefix(loop) + base.name,
+        attr: base.attr,
         // 数値は巨大になるので BigNum で持つ
         baseCost: B(D.PARTY_GEN_COST_STEP).pow(steps).mul(last.baseCost),
         ratio: B(D.PARTY_GEN_RATIO_STEP).pow(steps).mul(last.ratio),
@@ -157,6 +177,7 @@
       souls: BigNum.ZERO,
       soulUpgrades: Object.fromEntries(D.SOUL_UPGRADES.map((u) => [u.id, 0])),
       bestArea: 1,
+      formation: D.ATTRS[0].id, // 戦わせる仲間の属性（転生しても変わらない）
       stats: {
         kills: 0,
         bossKills: 0,
@@ -245,6 +266,16 @@
       return n;
     }
 
+    // 属性ごとの仲間の倍率の合計
+    partyRatioByAttr() {
+      const by = Object.fromEntries(D.ATTRS.map((a) => [a.id, BigNum.ZERO]));
+      for (let i = 0; i < this.state.party.length; i++) {
+        const attr = partyDef(i).attr;
+        by[attr] = by[attr].add(this.partyMemberRatio(i));
+      }
+      return by;
+    }
+
     soulPassiveMult() {
       return this.state.souls.mul(CONFIG.soulPassiveBonus).add(1);
     }
@@ -265,9 +296,12 @@
       const baseAtk = L.mul(CONFIG.heroAtkPerLevel).mul(this.equipMult('weapon')).mul(soul).mul(power);
       const atk = this.skillActive('berserk') ? baseAtk.mul(10) : baseAtk;
 
+      // 戦うのは陣形で選んだ属性の仲間だけ。その属性とエリアの相性で与ダメージが変わる
+      const partyByAttr = this.partyRatioByAttr();
       let partyRatio = BigNum.ZERO;
-      for (let i = 0; i < s.party.length; i++) partyRatio = partyRatio.add(this.partyMemberRatio(i));
-      let partyDps = baseAtk.mul(partyRatio);
+      for (const a of D.ATTRS) partyRatio = partyRatio.add(partyByAttr[a.id]);
+      const partyAttrMult = attrMult(s.area, s.formation);
+      let partyDps = baseAtk.mul(partyByAttr[s.formation]).mul(partyAttrMult);
       if (this.skillActive('rally')) partyDps = partyDps.mul(20);
 
       let goldMult = acc.mul(B(2).pow(su.wealth));
@@ -279,7 +313,9 @@
         level: L,
         baseAtk,
         atk,
-        partyRatio,
+        partyRatio, // 控えも含めた全員の倍率の合計
+        partyByAttr,
+        partyAttrMult, // 陣形の属性とエリアの相性による倍率
         maxHp: L.mul(CONFIG.heroHpPerLevel).mul(armor).mul(vit),
         def: L.mul(CONFIG.heroDefPerLevel).mul(armor).mul(vit),
         partyDps,
@@ -307,6 +343,7 @@
       let atk = B(CONFIG.enemyAtkGrowth).pow(a).mul(CONFIG.enemyAtkBase);
       let exp = B(CONFIG.expGrowth).pow(a).mul(CONFIG.expBase);
       let gold = B(CONFIG.goldGrowth).pow(a).mul(CONFIG.goldBase * (1 + 0.1 * index));
+      if (areaInfo(area).base.special === 'brute') atk = atk.mul(CONFIG.bruteAtkMult);
       if (isBoss) {
         hp = hp.mul(CONFIG.bossHpMult);
         atk = atk.mul(CONFIG.bossAtkMult);
@@ -332,6 +369,7 @@
         atk: st.atk,
         exp: st.exp,
         gold: st.gold,
+        regen: info.base.special === 'regen' ? CONFIG.enemyRegenPerSec : 0,
       };
       this.enemyTimer = 0;
       if (isBoss) this.bossTimeLeft = this.bossTimeLimit();
@@ -381,6 +419,9 @@
           return;
         }
       }
+
+      const e = this.enemy;
+      if (e.regen > 0 && e.hp.lt(e.maxHp)) e.hp = e.hp.add(e.maxHp.mul(e.regen * dt)).min(e.maxHp);
 
       if (!st.partyDps.isZero()) {
         const dmg = st.partyDps.mul(dt);
@@ -487,6 +528,7 @@
       if (s.area > 1) s.area -= 1;
       s.kills = 0;
       s.autoAdvance = false;
+      this.invalidate();
       this.enemy = null;
       this.spawnTimer = CONFIG.spawnDelay * 2;
       this.emit('death', { from, to: s.area });
@@ -525,7 +567,10 @@
         if (s.area >= s.maxArea) s.maxArea = s.area + 1;
         if (s.maxArea > s.bestArea) s.bestArea = s.maxArea;
         s.kills = 0;
-        if (s.autoAdvance) s.area += 1;
+        if (s.autoAdvance) {
+          s.area += 1;
+          this.invalidate(); // 仲間DPSはエリアの弱点・耐性で変わる
+        }
         this.heroHp = maxHp;
         this.emit('areaClear', { cleared, area: s.area });
       } else {
@@ -561,6 +606,14 @@
       this.emit('autoAdvance', { on });
     }
 
+    setFormation(attr) {
+      if (!D.ATTRS.some((a) => a.id === attr) || this.state.formation === attr) return false;
+      this.state.formation = attr;
+      this.invalidate();
+      this.emit('formation', { attr });
+      return true;
+    }
+
     goToArea(area) {
       const s = this.state;
       area = Math.max(1, Math.min(s.maxArea, Math.floor(area)));
@@ -571,6 +624,7 @@
       // 前のエリアに戻ったら、すぐ先へ進んでしまわないように修行モードにする
       const training = area < from && s.autoAdvance;
       if (training) s.autoAdvance = false;
+      this.invalidate();
       this.enemy = null;
       this.spawnTimer = CONFIG.spawnDelay;
       this.emit('areaChange', { area, from, training });
@@ -762,11 +816,20 @@
       }
       this.state = s;
       this.invalidate();
+      if (D.ATTRS.some((a) => a.id === data.formation)) {
+        s.formation = data.formation;
+      } else {
+        // 陣形のなかった頃のセーブは、いちばん強い属性の仲間を戦わせる
+        const by = this.partyRatioByAttr();
+        for (const a of D.ATTRS) if (by[a.id].gt(by[s.formation])) s.formation = a.id;
+      }
     }
   }
 
   Game.CONFIG = CONFIG;
   Game.areaInfo = areaInfo;
+  Game.attrMult = attrMult;
+  Game.traitPower = traitPower;
   Game.equipName = equipName;
   Game.partyDef = partyDef;
   Game.partyUnlockArea = partyUnlockArea;
