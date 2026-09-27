@@ -41,12 +41,12 @@
     // 陣形の属性がエリアの弱点なら仲間の与ダメージ ×10^p、耐性なら ×10^-p。
     // p = max(traitMinPower, round(エリア × traitPowerPerArea))。先のエリアほど相性の差が大きくなる
     traitMinPower: 1,
-    traitPowerPerArea: 0.02,
+    traitPowerPerArea: 0.045,
     bruteAtkMult: 5, // 「強打」のエリアの敵の攻撃力倍率
     enemyRegenPerSec: 0.05, // 「再生」のエリアの敵が毎秒回復する最大HPの割合
     prestigeMinArea: 20,
     soulBase: 5,
-    soulGrowth: 1.11,
+    soulGrowth: 1.12,
     soulPassiveBonus: 0.1,
     offlineCapSec: 12 * 3600,
   };

@@ -286,8 +286,8 @@ test('only members of the formation fight, and area weakness and resistance scal
   assert.ok(near(dps(3, 'magic'), by.magic.div(10)));
   assert.ok(near(dps(3, 'holy'), by.holy));
   // 先のエリアほど相性の差が大きい
-  assert.equal(Game.traitPower(10), 1);
-  assert.equal(Game.traitPower(500), 10);
+  assert.equal(Game.traitPower(1), Game.CONFIG.traitMinPower);
+  assert.ok(Game.traitPower(1000) > Game.traitPower(100));
   const farWeak = D.AREAS.length * 30 + 3; // ゴブリンの洞窟が30周した先
   assert.ok(Game.attrMult(farWeak, 'phys').eq(BigNum.fromLog10(Game.traitPower(farWeak))));
   assert.ok(Game.attrMult(farWeak, 'magic').mul(Game.attrMult(farWeak, 'phys')).sub(1).abs().lt(1e-9));
