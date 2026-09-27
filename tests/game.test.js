@@ -224,3 +224,27 @@ test('members hired before the area limit existed can still be upgraded', () => 
   assert.ok(g.buyParty(4, 1));
   assert.equal(g.buyParty(5, 1), false, 'but no new scouting until the area is reached');
 });
+
+test('going back to an earlier area switches to training mode', () => {
+  const g = new Game(null, { random: noCrit });
+  g.state.maxArea = 10;
+  g.state.area = 10;
+  assert.equal(g.state.autoAdvance, true);
+  let change = null;
+  g.on((type, d) => { if (type === 'areaChange') change = d; });
+  g.goToArea(8);
+  assert.equal(g.state.area, 8);
+  assert.equal(g.state.autoAdvance, false);
+  assert.equal(change.training, true);
+  // 修行中はボスが出ず、エリア8に留まる
+  g.state.soulUpgrades.power = 60;
+  g.invalidate();
+  run(g, 20);
+  assert.equal(g.state.area, 8);
+  assert.ok(!(g.enemy && g.enemy.isBoss));
+  // 先へ進むときは自動進行の設定を変えない
+  g.setAutoAdvance(true);
+  g.goToArea(9);
+  assert.equal(g.state.autoAdvance, true);
+  assert.equal(change.training, false);
+});

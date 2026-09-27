@@ -240,8 +240,11 @@
       case 'skill':
         log(`${d.skill.icon} <span class="v">${escapeHtml(d.skill.name)}</span>！ ${escapeHtml(d.skill.desc)}`);
         break;
-      case 'autoAdvance':
       case 'areaChange':
+        if (d.training) log(`エリア${d.area.toLocaleString()}に戻った。自動進行をOFFにして修行モードへ`);
+        renderSlow();
+        break;
+      case 'autoAdvance':
         renderSlow();
         break;
       case 'purchase':
