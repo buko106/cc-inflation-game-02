@@ -4,6 +4,10 @@
  * 到達エリアや数値の大きさの推移を出力する。
  *
  *   node tools/simulate.js [時間(h)=3] [タップ/秒=4]
+ *
+ * SIM_BLIND=1 にすると、エリアの弱点・耐性を見ない（陣形を物理のまま変えず、物理の仲間だけ育てる）。
+ * 既定では全属性の仲間を育て、エリアごとに最も与ダメージが大きい陣形に切り替える。
+ * SIM_NEWEST=1 にすると、仲間は一番新しい仲間（と次のスカウト）だけを育てる。
  */
 const Game = require('../js/game.js');
 const D = require('../js/data.js');
@@ -17,9 +21,11 @@ Object.assign(D, JSON.parse(process.env.SIM_DATA || '{}'));
 
 const hours = Number(process.argv[2] || 3);
 const tapsPerSec = Number(process.argv[3] || 4);
+const blind = process.env.SIM_BLIND === '1';
+const newestOnly = process.env.SIM_NEWEST === '1';
 const DT = 0.1;
 
-let seed = 12345;
+let seed = Number(process.env.SIM_SEED || 12345);
 const random = () => {
   seed = (seed * 1103515245 + 12345) % 2147483648;
   return seed / 2147483648;
@@ -63,9 +69,12 @@ function bestDamagePurchase() {
   game.invalidate();
   pick('equip', 'weapon', game.equipCost('weapon', 1).cost, weaponGain);
   // 仲間のDPSは「攻撃力 × 倍率の合計」なので、倍率の増分から直接計算する（仲間が多くても速い）
-  const partyMult = st.baseAtk.mul(game.skillActive('rally') ? 20 : 1).mul(1 + tapsPerSec * Game.CONFIG.tapPartyRatio).div(base);
-  for (let i = 0; i <= game.partyHiredCount(); i++) {
-    if (!game.partyUnlocked(i)) continue;
+  const partyMult = st.baseAtk.mul(st.partyAttrMult).mul(game.skillActive('rally') ? 20 : 1).mul(1 + tapsPerSec * Game.CONFIG.tapPartyRatio).div(base);
+  const hired = game.partyHiredCount();
+  for (let i = newestOnly ? Math.max(0, hired - 1) : 0; i <= hired; i++) {
+    // 弱点・耐性を見ないなら、陣形にいない（戦わない）属性の仲間は育てない。
+    // 見るなら、どのエリアでも弱点を突けるように全属性を陣形にいるものとして育てる
+    if (!game.partyUnlocked(i) || (blind && Game.partyDef(i).attr !== s.formation)) continue;
     const n = game.partyLevel(i);
     const dRatio = game.partyMemberRatio(i, n + 1).sub(game.partyMemberRatio(i, n));
     pick('party', i, game.partyCost(i, 1).cost, partyMult.mul(dRatio).toNumber());
@@ -96,12 +105,34 @@ function spendReport() {
   const st = game.getStats();
   const weapon = game.equipMult('weapon').log10();
   const party = st.partyRatio.isZero() ? 0 : st.partyRatio.log10();
+  const attrs = D.ATTRS.map((a) => `${a.name} ${st.partyByAttr[a.id].isZero() ? '-' : st.partyByAttr[a.id].log10().toFixed(0)}`).join(' ');
   spent = { equip: BigNum.ZERO, party: BigNum.ZERO };
-  return `装備への支出 ${share.toFixed(1)}% | 倍率の桁 武器 ${weapon.toFixed(0)} / 仲間 ${party.toFixed(0)}`;
+  return `装備への支出 ${share.toFixed(1)}% | 倍率の桁 武器 ${weapon.toFixed(0)} / 仲間 ${party.toFixed(0)} (${attrs})`;
+}
+
+// いまのエリアで最も与ダメージが大きくなる陣形にする
+function chooseFormation() {
+  if (blind) return;
+  const s = game.state;
+  const by = game.getStats().partyByAttr;
+  let best = s.formation;
+  let bestPower = by[best].mul(Game.attrMult(s.area, best));
+  for (const a of D.ATTRS) {
+    const power = by[a.id].mul(Game.attrMult(s.area, a.id));
+    if (power.gt(bestPower)) { best = a.id; bestPower = power; }
+  }
+  game.setFormation(best);
 }
 
 function shop() {
   const s = game.state;
+  // 次の仲間は、属性にかかわらず安ければ雇っておく（雇わないと、その先の仲間に出会えない）
+  for (let guard = 0; guard < 20; guard++) {
+    const next = game.partyHiredCount();
+    if (!game.partyUnlocked(next) || game.partyCost(next, 1).cost.gt(s.gold.mul(0.1))) break;
+    game.buyParty(next, 1);
+  }
+  chooseFormation();
   // 生存のための防具: 被ダメージが最大HPの8%を超えるなら優先
   for (let guard = 0; guard < 200; guard++) {
     const st = game.getStats();

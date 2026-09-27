@@ -245,6 +245,24 @@ b { font-weight: normal; }
 .pips i.boss { border-color: var(--hp); }
 .pips i.boss.now { background: var(--hp); animation: pulse 0.8s ease-in-out infinite alternate; }
 
+/* エリアの特性（弱点・耐性・特殊な性質） */
+.traits {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  min-height: 22px;
+  padding-inline: 4px;
+  font-family: var(--font-text);
+  font-size: 12px;
+}
+.trait { padding: 1px 8px; border: 1px solid var(--faint); border-radius: 999px; color: var(--muted); white-space: nowrap; }
+.trait.weak { border-color: var(--good); color: var(--good); }
+.trait.resist { border-color: var(--danger); color: var(--danger); }
+.trait.special { border-color: var(--gold); color: var(--gold); }
+.trait-none { color: var(--faint); }
+.trait-note { color: var(--muted); }
+
 .field {
   --hue: 110;
   position: relative;
@@ -385,6 +403,31 @@ b { font-weight: normal; }
   animation: rise 0.9s ease-out forwards, rainbow 0.8s linear infinite;
 }
 
+/* 陣形: 戦わせる仲間の属性を選ぶ */
+.formation { display: flex; align-items: center; gap: 8px; padding-inline: 4px; }
+.formation-label { flex: none; font-family: var(--font-text); font-size: 12px; color: var(--muted); }
+.formation-btns { flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; min-width: 0; }
+.formation-btns button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 0;
+  padding: 4px 4px 3px;
+  border: 2px solid var(--frame-dim);
+  border-radius: 6px;
+  background: var(--window);
+  color: var(--muted);
+}
+.formation-btns button:hover { border-color: var(--frame); }
+.formation-btns .f-name { font-size: 14px; white-space: nowrap; }
+.formation-btns .eff { font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.formation-btns button.weak { border-color: rgba(110, 231, 160, 0.55); }
+.formation-btns button.weak .eff { color: var(--good); }
+.formation-btns button.resist .eff { color: var(--danger); }
+.formation-btns button[aria-checked="true"] { border-color: var(--gold); background: var(--btn); color: var(--ink); }
+.formation-btns button[aria-checked="true"].resist { border-color: var(--danger); }
+
 .stage-foot {
   display: flex;
   flex-wrap: wrap;
@@ -494,6 +537,7 @@ b { font-weight: normal; }
 .log .x { color: var(--exp); }
 .log .r { color: var(--hp); }
 .log .v { color: var(--good); }
+.log .hint-line { display: block; color: var(--gold); font-size: 13px; }
 
 /* ---------- 右パネル ---------- */
 .panel-col { display: flex; flex-direction: column; gap: 10px; padding: 10px; }
@@ -554,7 +598,15 @@ b { font-weight: normal; }
 .row-sub b { color: var(--ink); }
 .row-sub .next { color: var(--good); }
 .row-sub .milestone { font-family: var(--font-text); font-size: 11px; color: var(--faint); }
-.party-summary { margin: 0; font-size: 14px; color: var(--exp); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.party-summary { margin: 0; font-size: 14px; color: var(--exp); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; line-height: 1.6; }
+.party-summary .eff { font-family: var(--font-text); font-size: 12px; color: var(--muted); }
+.party-summary .eff.weak { color: var(--good); }
+.party-summary .eff.resist { color: var(--danger); }
+.attr-totals { font-size: 12px; color: var(--muted); }
+.attr-totals .on { color: var(--ink); }
+.attr-chip { font-family: var(--font-text); font-size: 11px; padding: 0 6px; border: 1px solid var(--faint); border-radius: 4px; color: var(--muted); white-space: nowrap; }
+.attr-chip:empty { display: none; }
+.row.benched .row-icon, .row.benched .row-title .name, .row.benched .row-sub { opacity: 0.55; }
 .scout-chip { display: none; padding: 0 6px; border-radius: 4px; background: var(--gold); color: var(--night); font-size: 11px; }
 .row.scout { border: 1px dashed rgba(245, 197, 66, 0.6); background: rgba(245, 197, 66, 0.05); }
 .row.scout .scout-chip { display: inline-block; }

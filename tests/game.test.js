@@ -186,6 +186,7 @@ test('a rich hero can hire far beyond the first twelve members', () => {
   for (let i = 0; i < 100; i++) assert.ok(g.buyParty(i, 1), `hire member ${i}`);
   assert.equal(g.partyHiredCount(), 100);
   assert.equal(g.buyParty(101, 1), false, 'cannot skip a member');
+  g.setFormation(Game.partyDef(99).attr);
   const before = g.getStats().partyDps;
   assert.ok(g.buyParty(99, 10));
   assert.ok(g.getStats().partyDps.gt(before));
@@ -247,4 +248,93 @@ test('going back to an earlier area switches to training mode', () => {
   g.goToArea(9);
   assert.equal(g.state.autoAdvance, true);
   assert.equal(change.training, false);
+});
+
+test('area data uses known attributes and never resists the only attribute a new player has', () => {
+  const attrs = new Set(D.ATTRS.map((a) => a.id));
+  D.AREAS.forEach((a, i) => {
+    for (const k of ['weak', 'resist']) if (a[k]) assert.ok(attrs.has(a[k]), `${a.name} ${k}`);
+    if (a.special) assert.ok(D.AREA_SPECIALS[a.special], `${a.name} special`);
+    assert.notEqual(a.weak || null, a.resist || 'none', `${a.name} is weak and resistant to the same attribute`);
+    // 物理以外の仲間（魔法使い）に出会う前のエリアで、物理に耐性を持たせない
+    if (a.resist === 'phys') assert.ok(i + 1 >= Game.partyUnlockArea(2), `${a.name} resists phys too early`);
+  });
+  for (let i = 0; i < 60; i++) assert.ok(attrs.has(Game.partyDef(i).attr), `member ${i} has an attribute`);
+  const named = D.PARTY.length + D.PARTY_EXTRA.length;
+  assert.equal(Game.partyDef(named).attr, D.PARTY[0].attr, 'generated members keep the attribute of their base name');
+});
+
+test('only members of the formation fight, and area weakness and resistance scale their damage', () => {
+  const g = new Game(null, { random: noCrit });
+  g.state.gold = BigNum.from('1e30');
+  g.state.maxArea = 20;
+  for (let i = 0; i < 4; i++) assert.ok(g.buyParty(i, 10));
+  const by = g.partyRatioByAttr();
+  const dps = (area, attr) => {
+    g.state.area = area;
+    g.setFormation(attr);
+    g.invalidate();
+    return g.getStats().partyDps.div(g.getStats().baseAtk);
+  };
+  const near = (a, b) => Math.abs(a.div(b).toNumber() - 1) < 1e-9;
+  assert.equal(g.state.formation, 'phys');
+  // エリア2（ささやきの森）は魔法が弱点、物理は等倍
+  assert.ok(near(dps(2, 'phys'), by.phys));
+  assert.ok(near(dps(2, 'magic'), by.magic.mul(10)));
+  // エリア3（ゴブリンの洞窟）は物理が弱点、魔法に耐性
+  assert.ok(near(dps(3, 'phys'), by.phys.mul(10)));
+  assert.ok(near(dps(3, 'magic'), by.magic.div(10)));
+  assert.ok(near(dps(3, 'holy'), by.holy));
+  // 先のエリアほど相性の差が大きい
+  assert.equal(Game.traitPower(10), 1);
+  assert.equal(Game.traitPower(500), 10);
+  const farWeak = D.AREAS.length * 30 + 3; // ゴブリンの洞窟が30周した先
+  assert.ok(Game.attrMult(farWeak, 'phys').eq(BigNum.fromLog10(Game.traitPower(farWeak))));
+  assert.ok(Game.attrMult(farWeak, 'magic').mul(Game.attrMult(farWeak, 'phys')).sub(1).abs().lt(1e-9));
+  assert.equal(g.setFormation('nope'), false);
+});
+
+test('changing areas updates party damage right away', () => {
+  const g = new Game(null, { random: noCrit });
+  g.state.gold = BigNum.from('1e10');
+  g.state.maxArea = 3;
+  assert.ok(g.buyParty(0, 10));
+  g.state.area = 2;
+  g.invalidate();
+  const neutral = g.getStats().partyDps;
+  g.goToArea(3); // 物理が弱点
+  assert.ok(g.getStats().partyDps.gt(neutral.mul(9)));
+});
+
+test('brute areas hit harder and regen areas heal their enemies', () => {
+  const area = (special) => D.AREAS.findIndex((a) => a.special === special) + 1;
+  const brute = area('brute');
+  // 特性がなかった場合の攻撃力と比べる
+  const plainAtk = BigNum.from(Game.CONFIG.enemyAtkGrowth).pow(brute - 1).mul(Game.CONFIG.enemyAtkBase);
+  const ratio = Game.enemyStats(brute, 0, false).atk.div(plainAtk).toNumber();
+  assert.ok(Math.abs(ratio - Game.CONFIG.bruteAtkMult) < 1e-9);
+  const g = new Game(null, { random: noCrit });
+  g.state.area = area('regen');
+  g.state.maxArea = g.state.area;
+  g.enemy = null;
+  g.spawnEnemy();
+  const e = g.enemy;
+  assert.ok(e.regen > 0);
+  e.hp = e.maxHp.div(2);
+  run(g, 1);
+  assert.ok(e.hp.gt(e.maxHp.mul(0.52)), 'healed by about 5% of max HP');
+});
+
+test('the formation is kept through prestige and saves, and old saves fight with their strongest attribute', () => {
+  const g = new Game(null, { random: noCrit });
+  assert.ok(g.setFormation('holy'));
+  g.state.maxArea = 40;
+  assert.ok(g.prestige());
+  assert.equal(g.state.formation, 'holy');
+  const h = new Game(JSON.parse(JSON.stringify(g.serialize())), { random: noCrit });
+  assert.equal(h.state.formation, 'holy');
+  // 陣形のなかった頃のセーブ: 魔法使い（3人目）がいちばん強い
+  const old = new Game({ totalExp: 0, maxArea: 12, area: 12, party: [5, 5, 60] }, { random: noCrit });
+  assert.equal(old.state.formation, 'magic');
+  assert.ok(old.getStats().partyDps.gt(0));
 });
