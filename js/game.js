@@ -565,11 +565,15 @@
       const s = this.state;
       area = Math.max(1, Math.min(s.maxArea, Math.floor(area)));
       if (area === s.area) return;
+      const from = s.area;
       s.area = area;
       s.kills = 0;
+      // 前のエリアに戻ったら、すぐ先へ進んでしまわないように修行モードにする
+      const training = area < from && s.autoAdvance;
+      if (training) s.autoAdvance = false;
       this.enemy = null;
       this.spawnTimer = CONFIG.spawnDelay;
-      this.emit('areaChange', { area });
+      this.emit('areaChange', { area, from, training });
     }
 
     equipCost(id, amount) {
