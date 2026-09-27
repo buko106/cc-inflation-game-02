@@ -65,11 +65,39 @@ function bestDamagePurchase() {
   // 仲間のDPSは「攻撃力 × 倍率の合計」なので、倍率の増分から直接計算する（仲間が多くても速い）
   const partyMult = st.baseAtk.mul(game.skillActive('rally') ? 20 : 1).mul(1 + tapsPerSec * Game.CONFIG.tapPartyRatio).div(base);
   for (let i = 0; i <= game.partyHiredCount(); i++) {
+    if (!game.partyUnlocked(i)) continue;
     const n = game.partyLevel(i);
     const dRatio = game.partyMemberRatio(i, n + 1).sub(game.partyMemberRatio(i, n));
     pick('party', i, game.partyCost(i, 1).cost, partyMult.mul(dRatio).toNumber());
   }
   return best;
+}
+
+// 何にゴールドを使ったかをチェックポイントごとに集計する
+let spent = { equip: BigNum.ZERO, party: BigNum.ZERO };
+const rawBuyEquip = game.buyEquip.bind(game);
+const rawBuyParty = game.buyParty.bind(game);
+game.buyEquip = (id, amount) => {
+  const { cost } = game.equipCost(id, amount);
+  const ok = rawBuyEquip(id, amount);
+  if (ok) spent.equip = spent.equip.add(cost);
+  return ok;
+};
+game.buyParty = (idx, amount) => {
+  const { cost } = game.partyCost(idx, amount);
+  const ok = rawBuyParty(idx, amount);
+  if (ok) spent.party = spent.party.add(cost);
+  return ok;
+};
+
+function spendReport() {
+  const total = spent.equip.add(spent.party);
+  const share = total.isZero() ? 0 : spent.equip.div(total).toNumber() * 100;
+  const st = game.getStats();
+  const weapon = game.equipMult('weapon').log10();
+  const party = st.partyRatio.isZero() ? 0 : st.partyRatio.log10();
+  spent = { equip: BigNum.ZERO, party: BigNum.ZERO };
+  return `装備への支出 ${share.toFixed(1)}% | 倍率の桁 武器 ${weapon.toFixed(0)} / 仲間 ${party.toFixed(0)}`;
 }
 
 function shop() {
@@ -166,6 +194,6 @@ for (let i = 0; i < totalTicks; i++) {
   if (checkpoints.length && t >= checkpoints[0]) {
     checkpoints.shift();
     const st = game.getStats();
-    log(`CHECK area ${s.area}/${s.maxArea} best ${s.bestArea} | Lv ${fmt(st.level)} ATK ${fmt(st.atk)} party ${fmt(st.partyDps)} | gold ${fmt(s.gold)} souls ${fmt(s.souls)} | equip ${JSON.stringify(s.equip)} party ${s.party.length}人 [${s.party.slice(0, 3).join(',')}…${s.party.slice(-3).join(',')}]`);
+    log(`CHECK area ${s.area}/${s.maxArea} best ${s.bestArea} | Lv ${fmt(st.level)} ATK ${fmt(st.atk)} party ${fmt(st.partyDps)} | gold ${fmt(s.gold)} souls ${fmt(s.souls)} | equip ${JSON.stringify(s.equip)} party ${s.party.length}人 | ${spendReport()}`);
   }
 }

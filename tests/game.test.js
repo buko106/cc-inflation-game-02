@@ -64,6 +64,7 @@ test('party members unlock in order and add DPS', () => {
   g.state.gold = BigNum.from(1e9);
   assert.equal(g.buyParty(1, 1), false, 'second member is locked until the first joins');
   assert.ok(g.buyParty(0, 1));
+  g.state.maxArea = Game.partyUnlockArea(1);
   assert.ok(g.buyParty(1, 1));
   assert.ok(g.getStats().partyDps.gt(0));
 });
@@ -181,6 +182,7 @@ test('party members continue past the hand-made list and keep getting stronger',
 test('a rich hero can hire far beyond the first twelve members', () => {
   const g = new Game(null, { random: noCrit });
   g.state.gold = BigNum.from('1e600');
+  g.state.maxArea = Game.partyUnlockArea(101);
   for (let i = 0; i < 100; i++) assert.ok(g.buyParty(i, 1), `hire member ${i}`);
   assert.equal(g.partyHiredCount(), 100);
   assert.equal(g.buyParty(101, 1), false, 'cannot skip a member');
@@ -191,10 +193,34 @@ test('a rich hero can hire far beyond the first twelve members', () => {
 });
 
 test('old saves with a fixed-size party array still load', () => {
-  const old = { totalExp: 0, party: [40, 25, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0] };
+  const old = { totalExp: 0, maxArea: 12, area: 12, party: [40, 25, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0] };
   const g = new Game(old, { random: noCrit });
   assert.deepEqual(g.state.party, [40, 25, 3]);
   assert.equal(g.partyHiredCount(), 3);
   assert.ok(g.partyUnlocked(3));
   assert.equal(g.partyUnlocked(4), false);
+});
+
+test('new members can only be scouted after reaching their area', () => {
+  const g = new Game(null, { random: noCrit });
+  g.state.gold = BigNum.from('1e30');
+  for (let i = 1; i < 40; i++) assert.ok(Game.partyUnlockArea(i) > Game.partyUnlockArea(i - 1));
+  assert.equal(g.partyMetCount(), 1);
+  assert.ok(g.buyParty(0, 1));
+  assert.equal(g.buyParty(1, 1), false, 'area too low');
+  g.state.maxArea = Game.partyUnlockArea(1);
+  assert.equal(g.partyMetCount(), 2);
+  assert.ok(g.buyParty(1, 1));
+  assert.equal(g.buyParty(2, 1), false);
+  g.state.maxArea = Game.partyUnlockArea(2) - 1;
+  assert.equal(g.buyParty(2, 1), false);
+  g.state.maxArea = Game.partyUnlockArea(2);
+  assert.ok(g.buyParty(2, 1));
+});
+
+test('members hired before the area limit existed can still be upgraded', () => {
+  const g = new Game({ totalExp: 0, gold: '1e40', party: [5, 5, 5, 5, 5] }, { random: noCrit });
+  assert.equal(g.state.maxArea, 1);
+  assert.ok(g.buyParty(4, 1));
+  assert.equal(g.buyParty(5, 1), false, 'but no new scouting until the area is reached');
 });

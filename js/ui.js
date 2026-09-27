@@ -357,6 +357,7 @@
     $('statDps').textContent = fmt(st.heroDps.add(st.partyDps));
 
     renderLadder();
+    updatePartyNews();
     if (currentTab === 'equip') renderEquip();
     if (currentTab === 'party') renderParty();
     if (currentTab === 'soul') renderSoul();
@@ -471,9 +472,9 @@
     const row = document.createElement('div');
     row.className = 'row';
     row.innerHTML = `
-      <div class="row-icon">${def.icon}</div>
+      <div class="row-icon"></div>
       <div class="row-main">
-        <div class="row-title"><span class="scout-chip">スカウト</span><span class="name">${escapeHtml(def.name)}</span><span class="lv"></span></div>
+        <div class="row-title"><span class="scout-chip">スカウト</span><span class="name"></span><span class="lv"></span></div>
         <div class="row-sub"></div>
         <div class="share"><i></i></div>
       </div>
@@ -488,6 +489,8 @@
     });
     partyRefs[i] = {
       row,
+      icon: row.querySelector('.row-icon'),
+      name: row.querySelector('.name'),
       lv: row.querySelector('.lv'),
       sub: row.querySelector('.row-sub'),
       share: row.querySelector('.share'),
@@ -509,14 +512,34 @@
       for (let i = hired; i >= 0; i--) root.appendChild(partyRow(i).row);
       partyRowsHired = hired;
     }
+    // 先頭は次の仲間。まだ出会っていなければ、出会えるエリアだけ見せる
+    const nextArea = Game.partyUnlockArea(hired);
+    const nextLocked = !game.partyUnlocked(hired);
+    const next = nextLocked ? ` ・ 次の仲間はエリア${nextArea.toLocaleString()}で出会える` : '';
     setText($('partySummary'), hired > 0
-      ? `仲間 ${hired.toLocaleString()}人 ・ 合計 攻撃力 ×${fmtMult(st.partyRatio)} /秒`
+      ? `仲間 ${hired.toLocaleString()}人 ・ 合計 攻撃力 ×${fmtMult(st.partyRatio)} /秒${next}`
       : 'まだ仲間がいない。まずは村人Aを雇おう');
     for (let i = hired; i >= 0; i--) {
       const r = partyRefs[i];
+      const def = Game.partyDef(i);
       const n = game.partyLevel(i);
-      const scout = n === 0;
+      const locked = i === hired && nextLocked;
+      const scout = n === 0 && !locked;
       r.row.classList.toggle('scout', scout);
+      r.row.classList.toggle('locked', locked);
+      if (locked) {
+        setText(r.icon, '❔');
+        setText(r.name, '？？？');
+        setText(r.lv, '');
+        setHtml(r.sub, `エリア${nextArea.toLocaleString()}に到達すると出会える`);
+        r.share.hidden = true;
+        setText(r.btnLv, '未解放');
+        setText(r.btnCost, `エリア${nextArea.toLocaleString()}`);
+        r.btn.disabled = true;
+        continue;
+      }
+      setText(r.icon, def.icon);
+      setText(r.name, def.name);
       const { levels, cost } = game.partyCost(i, s.settings.buyAmount);
       const ratio = game.partyMemberRatio(i, n);
       const nextRatio = game.partyMemberRatio(i, n + levels);
@@ -532,6 +555,21 @@
       setText(r.btnCost, `${fmt(cost)}G`);
       r.btn.disabled = s.gold.lt(cost);
     }
+  }
+
+  // 新しい仲間に出会ったらログで知らせ、スカウトできる間は仲間タブに印を付ける
+  let lastMet = -1;
+  function updatePartyNews() {
+    const met = game.partyMetCount();
+    if (lastMet >= 0 && met > lastMet) {
+      const def = Game.partyDef(met - 1);
+      const more = met - lastMet - 1;
+      log(`${def.icon} 新しい仲間「<span class="v">${escapeHtml(def.name)}</span>」${more > 0 ? `ほか${more}人` : ''}に出会った！ 仲間タブでスカウトしよう`);
+    }
+    lastMet = met;
+    const hired = game.partyHiredCount();
+    const canScout = game.partyUnlocked(hired) && game.state.gold.gte(game.partyCost(hired, 1).cost);
+    $('tab-party').classList.toggle('has-news', canScout && currentTab !== 'party');
   }
 
   // --- 転生 ---
@@ -907,6 +945,7 @@
     lastEnemyRef = null;
     lastHeroTitle = '';
     ladderReached = -1;
+    lastMet = -1;
     buildParty();
     renderBuyAmount();
     renderSlow();
