@@ -8,6 +8,7 @@
  * SIM_BLIND=1 にすると、エリアの弱点・耐性を見ない（陣形を物理のまま変えず、物理の仲間だけ育てる）。
  * 既定では全属性の仲間を育て、エリアごとに最も与ダメージが大きい陣形に切り替える。
  * SIM_NEWEST=1 にすると、仲間は一番新しい仲間（と次のスカウト）だけを育てる。
+ * SIM_STALL=秒 で、最初の転生を考えるまでの足踏み時間を変える（既定 60 秒）。
  */
 const Game = require('../js/game.js');
 const D = require('../js/data.js');
@@ -23,6 +24,7 @@ const hours = Number(process.argv[2] || 3);
 const tapsPerSec = Number(process.argv[3] || 4);
 const blind = process.env.SIM_BLIND === '1';
 const newestOnly = process.env.SIM_NEWEST === '1';
+const stallSec = Number(process.env.SIM_STALL || 60); // この秒数だけ最高到達エリアが伸びなければ転生を考える
 const DT = 0.1;
 
 let seed = Number(process.env.SIM_SEED || 12345);
@@ -182,6 +184,8 @@ const areaMilestones = [5, 10, 20, 30, 50, 75, 100, 150, 200, 300, 500, 750, 100
 const fmt = (b) => BigNum.format(b);
 const log = (msg) => console.log(`[${(game.state.stats.playTime / 60).toFixed(1).padStart(6)}m] ${msg}`);
 
+let runStart = 0;
+let peakRate = 0;
 let tapBudget = 0;
 let shopTimer = 0;
 const totalTicks = Math.round((hours * 3600) / DT);
@@ -212,14 +216,29 @@ for (let i = 0; i < totalTicks; i++) {
     game.setAutoAdvance(true);
   }
 
-  // 3分進展がなく、魂が倍以上になるなら転生
+  // 転生のタイミング。魂は持っているだけで攻撃力が上がり、効果は魂の数に比例するので、
+  // 「魂が何倍になるか」の対数を今回の冒険の経過時間で割った値（魂の増える速さ）が
+  // 最高値から落ちてきたら転生する。まだ魂がないときは、しばらく足踏みしたら転生する
   const gain = game.soulsOnPrestige();
-  if (t - lastProgressAt > 180 && gain.gte(1) && gain.gte(s.souls)) {
+  let wantPrestige = false;
+  if (gain.gte(1)) {
+    const elapsed = t - runStart;
+    if (s.souls.isZero()) {
+      wantPrestige = t - lastProgressAt > stallSec;
+    } else if (elapsed > 30) {
+      const rate = gain.div(s.souls).add(1).log10() / elapsed;
+      peakRate = Math.max(peakRate, rate);
+      wantPrestige = rate < peakRate * 0.85 && gain.gte(s.souls);
+    }
+  }
+  if (wantPrestige) {
     log(`PRESTIGE at area ${s.maxArea}: +${fmt(gain)} souls (had ${fmt(s.souls)}), deaths ${s.stats.deaths}`);
     game.prestige();
     spendSouls();
     lastMaxArea = 1;
     lastProgressAt = t;
+    runStart = t;
+    peakRate = 0;
   }
 
   if (checkpoints.length && t >= checkpoints[0]) {

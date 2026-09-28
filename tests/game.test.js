@@ -250,10 +250,11 @@ test('going back to an earlier area switches to training mode', () => {
   assert.equal(change.training, false);
 });
 
-test('area data uses known attributes and never resists the only attribute a new player has', () => {
+test('every area has a weakness, and none resists the only attribute a new player has', () => {
   const attrs = new Set(D.ATTRS.map((a) => a.id));
   D.AREAS.forEach((a, i) => {
-    for (const k of ['weak', 'resist']) if (a[k]) assert.ok(attrs.has(a[k]), `${a.name} ${k}`);
+    assert.ok(attrs.has(a.weak), `${a.name} needs a weakness`);
+    if (a.resist) assert.ok(attrs.has(a.resist), `${a.name} resist`);
     if (a.special) assert.ok(D.AREA_SPECIALS[a.special], `${a.name} special`);
     assert.notEqual(a.weak || null, a.resist || 'none', `${a.name} is weak and resistant to the same attribute`);
     // 物理以外の仲間（魔法使い）に出会う前のエリアで、物理に耐性を持たせない
